@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface PhoneSearchInput {
+  /** Phone number in +218XXXXXXXXX or 09XXXXXXXX format */
+  phone: string;
+  deep?: boolean;
 }

@@ -5,7 +5,6 @@
  * LYOSINT Libya OSINT investigation platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { PlatformProfile } from './platformProfile';
 
-export interface HealthStatus {
-  status: string;
-}
+export type UsernameResultProfilesFound = {[key: string]: PlatformProfile};
