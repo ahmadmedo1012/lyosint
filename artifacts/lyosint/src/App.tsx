@@ -8,6 +8,7 @@ import Dashboard from "@/pages/dashboard";
 import SearchResultPage from "@/pages/search-result";
 import PlatformsPage from "@/pages/platforms";
 import HistoryPage from "@/pages/history";
+import { ThemeProvider } from "@/contexts/theme";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,14 +35,16 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 
