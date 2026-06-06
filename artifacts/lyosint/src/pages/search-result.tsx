@@ -18,13 +18,14 @@ function ConfidenceBar({ score }: { score: number }) {
   const color = pct > 75 ? "text-green-500" : pct > 40 ? "text-amber-500" : "text-destructive";
   const glowColor = pct > 75 ? "rgba(34,197,94,0.4)" : pct > 40 ? "rgba(245,158,11,0.4)" : "rgba(239,68,68,0.4)";
   return (
-    <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-between border-glow">
+    <div className="bg-card border border-border rounded-lg p-3 sm:p-4 flex items-center justify-between border-glow">
       <div className="text-sm text-muted-foreground flex items-center gap-2">
-        <CheckCircle2 className="w-4 h-4" />
-        درجة موثوقية الهدف
+        <CheckCircle2 className="w-4 h-4 shrink-0" />
+        <span className="hidden sm:inline">درجة موثوقية الهدف</span>
+        <span className="sm:hidden">الموثوقية</span>
       </div>
       <div
-        className={`text-3xl font-mono font-bold ${color}`}
+        className={`text-2xl sm:text-3xl font-mono font-bold ${color}`}
         style={{ textShadow: `0 0 20px ${glowColor}` }}
       >
         {pct}%
@@ -56,11 +57,11 @@ export default function SearchResultPage() {
   });
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12 page-transition" dir="rtl">
-      <div className="flex items-start justify-between border-b border-border/50 pb-5 gap-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold text-primary uppercase tracking-wider font-mono text-glow">
+    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto pb-8 sm:pb-12 page-transition" dir="rtl">
+      <div className="flex items-start justify-between border-b border-border/50 pb-4 sm:pb-5 gap-3 sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-bold text-primary uppercase tracking-wider font-mono text-glow break-all">
               ملف: <span dir="auto">{statusData?.query || "..."}</span>
             </h1>
             {statusData?.type && (
@@ -69,24 +70,26 @@ export default function SearchResultPage() {
               </Badge>
             )}
           </div>
-          <div className="text-xs font-mono text-muted-foreground mt-2 uppercase tracking-wider">
-            معرّف المهمة: <span className="text-foreground/60">{id}</span>
+          <div className="text-xs font-mono text-muted-foreground mt-1.5 uppercase tracking-wider break-all">
+            <span className="hidden sm:inline">معرّف المهمة: </span>
+            <span className="text-foreground/60">{id}</span>
           </div>
         </div>
         <div className="shrink-0">
           {isRunning && (
-            <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/40 uppercase font-mono animate-pulse gap-1.5">
+            <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/40 uppercase font-mono animate-pulse gap-1.5 text-[10px] sm:text-xs">
               <Loader2 className="w-3 h-3 animate-spin" />
-              جاري التنفيذ
+              <span className="hidden sm:inline">جاري التنفيذ</span>
+              <span className="sm:hidden">جاري</span>
             </Badge>
           )}
           {isCompleted && (
-            <Badge className="bg-green-500/15 text-green-400 border border-green-500/40 uppercase font-mono">
+            <Badge className="bg-green-500/15 text-green-400 border border-green-500/40 uppercase font-mono text-[10px] sm:text-xs">
               مكتمل
             </Badge>
           )}
           {isFailed && (
-            <Badge variant="destructive" className="uppercase font-mono">
+            <Badge variant="destructive" className="uppercase font-mono text-[10px] sm:text-xs">
               فاشل
             </Badge>
           )}
@@ -95,11 +98,12 @@ export default function SearchResultPage() {
 
       {isRunning && (
         <Card className="bg-secondary/20 border-primary/25 border-glow">
-          <CardContent className="pt-6 space-y-5">
+          <CardContent className="pt-5 sm:pt-6 space-y-4 sm:space-y-5">
             <div className="flex justify-between items-center text-sm uppercase">
               <span className="text-muted-foreground flex items-center gap-2 font-mono">
                 <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                فحص الشبكات...
+                <span className="hidden sm:inline">فحص الشبكات...</span>
+                <span className="sm:hidden">فحص...</span>
               </span>
               <span className="text-primary font-bold font-mono text-lg text-glow">
                 {statusData?.progress || 0}%
@@ -110,8 +114,8 @@ export default function SearchResultPage() {
               className="h-1.5 bg-secondary"
             />
             <div className="flex justify-between text-[10px] font-mono text-muted-foreground uppercase">
-              <span>منصات مفحوصة: {statusData?.platformsSearched || 0}</span>
-              <span>الأهداف: {statusData?.platformsTotal || 0}</span>
+              <span>مفحوص: {statusData?.platformsSearched || 0}</span>
+              <span>الإجمالي: {statusData?.platformsTotal || 0}</span>
             </div>
           </CardContent>
         </Card>
@@ -119,10 +123,10 @@ export default function SearchResultPage() {
 
       {isFailed && (
         <Card className="border-destructive bg-destructive/10">
-          <CardContent className="pt-6 flex items-center gap-4 text-destructive">
-            <XCircle className="w-8 h-8 shrink-0" />
+          <CardContent className="pt-5 sm:pt-6 flex items-center gap-3 sm:gap-4 text-destructive">
+            <XCircle className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
             <div>
-              <div className="font-bold uppercase tracking-wider text-lg font-mono">فشلت العملية</div>
+              <div className="font-bold uppercase tracking-wider text-base sm:text-lg font-mono">فشلت العملية</div>
               <div className="text-sm opacity-80 mt-1">تعذّر إتمام جمع المعلومات الاستخباراتية لهذا الهدف.</div>
             </div>
           </CardContent>
@@ -137,23 +141,23 @@ export default function SearchResultPage() {
       )}
 
       {isCompleted && resultData && (
-        <div className="space-y-6 page-transition">
+        <div className="space-y-4 sm:space-y-6 page-transition">
           {resultData.confidenceScore !== undefined && resultData.confidenceScore !== null && (
             <ConfidenceBar score={resultData.confidenceScore} />
           )}
 
           {resultData.nameResult && (
             <Card className="border-primary/20 bg-card border-glow">
-              <CardHeader className="border-b border-border/50 bg-secondary/20 pb-4">
+              <CardHeader className="border-b border-border/50 bg-secondary/20 pb-3 sm:pb-4">
                 <CardTitle className="text-sm uppercase text-foreground flex items-center gap-2 font-mono">
                   <User className="w-4 h-4 text-primary" /> معلومات شخصية
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+              <CardContent className="pt-4 sm:pt-6 grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-8">
                 <div className="space-y-4">
                   <div>
                     <div className="text-[10px] font-mono text-muted-foreground uppercase mb-1.5">الاسم الكامل</div>
-                    <div className="text-lg font-bold text-foreground" dir="auto">{resultData.nameResult.fullName || "غير محدد"}</div>
+                    <div className="text-base sm:text-lg font-bold text-foreground" dir="auto">{resultData.nameResult.fullName || "غير محدد"}</div>
                   </div>
                   {resultData.nameResult.possibleVariations && resultData.nameResult.possibleVariations.length > 0 && (
                     <div>
@@ -214,15 +218,15 @@ export default function SearchResultPage() {
 
           {resultData.phoneResult && (
             <Card className="border-primary/20 bg-card border-glow">
-              <CardHeader className="border-b border-border/50 bg-secondary/20 pb-4">
+              <CardHeader className="border-b border-border/50 bg-secondary/20 pb-3 sm:pb-4">
                 <CardTitle className="text-sm uppercase text-foreground flex items-center gap-2 font-mono">
                   <Phone className="w-4 h-4 text-primary" /> بيانات الاتصالات
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-5">
+              <CardContent className="pt-4 sm:pt-6 grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-8">
+                <div className="space-y-4 sm:space-y-5">
                   <div className="flex items-center gap-3 flex-wrap">
-                    <div className="text-2xl font-bold text-foreground font-mono" dir="ltr">
+                    <div className="text-xl sm:text-2xl font-bold text-foreground font-mono break-all" dir="ltr">
                       {resultData.phoneResult.nationalFormat || resultData.phoneResult.phone}
                     </div>
                     <Badge
@@ -235,12 +239,12 @@ export default function SearchResultPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-secondary/30 p-3 rounded border border-border/50">
                       <div className="text-[10px] font-mono text-muted-foreground uppercase mb-1">المشغّل</div>
-                      <div className="text-sm font-bold flex items-center gap-2">
-                        <Network className="w-3 h-3 text-primary" />
-                        <span className={
+                      <div className="text-sm font-bold flex items-center gap-1.5 flex-wrap">
+                        <Network className="w-3 h-3 text-primary shrink-0" />
+                        <span className={`break-all ${
                           resultData.phoneResult.carrier?.includes("Madar") ? "text-blue-400" :
                           resultData.phoneResult.carrier?.includes("Libyana") ? "text-purple-400" : "text-foreground"
-                        }>
+                        }`}>
                           {resultData.phoneResult.carrier || "غير محدد"}
                         </span>
                       </div>
@@ -251,30 +255,30 @@ export default function SearchResultPage() {
                     </div>
                   </div>
                   {(resultData.phoneResult.possibleOwner || resultData.phoneResult.possibleOwnerEn) && (
-                    <div className="bg-primary/5 p-4 rounded border border-primary/20 border-glow">
+                    <div className="bg-primary/5 p-3 sm:p-4 rounded border border-primary/20 border-glow">
                       <div className="text-[10px] font-mono text-primary uppercase mb-2 flex items-center gap-1">
                         <User className="w-3 h-3" /> المالك المحتمل
                       </div>
-                      <div className="text-lg font-medium" dir="rtl">{resultData.phoneResult.possibleOwner}</div>
+                      <div className="text-base sm:text-lg font-medium" dir="rtl">{resultData.phoneResult.possibleOwner}</div>
                       {resultData.phoneResult.possibleOwnerEn && (
                         <div className="text-sm text-muted-foreground mt-1 font-mono" dir="ltr">{resultData.phoneResult.possibleOwnerEn}</div>
                       )}
                     </div>
                   )}
                 </div>
-                <div className="space-y-5">
+                <div className="space-y-4 sm:space-y-5">
                   <div>
                     <div className="text-[10px] font-mono text-muted-foreground uppercase mb-2">المنصات المرتبطة</div>
-                    <div className="flex gap-3 flex-wrap">
+                    <div className="flex gap-2 sm:gap-3 flex-wrap">
                       <Badge
                         variant="outline"
-                        className={`font-mono text-xs px-3 py-1.5 ${resultData.phoneResult.whatsapp ? "bg-green-500/10 text-green-400 border-green-500/40" : "opacity-35"}`}
+                        className={`font-mono text-xs px-2.5 sm:px-3 py-1.5 ${resultData.phoneResult.whatsapp ? "bg-green-500/10 text-green-400 border-green-500/40" : "opacity-35"}`}
                       >
                         WhatsApp {resultData.phoneResult.whatsapp ? "✓" : "✗"}
                       </Badge>
                       <Badge
                         variant="outline"
-                        className={`font-mono text-xs px-3 py-1.5 ${resultData.phoneResult.telegramRegistered ? "bg-blue-500/10 text-blue-400 border-blue-500/40" : "opacity-35"}`}
+                        className={`font-mono text-xs px-2.5 sm:px-3 py-1.5 ${resultData.phoneResult.telegramRegistered ? "bg-blue-500/10 text-blue-400 border-blue-500/40" : "opacity-35"}`}
                       >
                         Telegram {resultData.phoneResult.telegramRegistered ? "✓" : "✗"}
                       </Badge>
@@ -303,28 +307,29 @@ export default function SearchResultPage() {
 
           {resultData.usernameResult && (
             <Card className="border-primary/20 bg-card border-glow">
-              <CardHeader className="border-b border-border/50 bg-secondary/20 pb-4">
-                <div className="flex items-center justify-between">
+              <CardHeader className="border-b border-border/50 bg-secondary/20 pb-3 sm:pb-4">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <CardTitle className="text-sm uppercase text-foreground flex items-center gap-2 font-mono">
                     <AtSign className="w-4 h-4 text-primary" /> البصمة الرقمية
                   </CardTitle>
                   <div className="text-xs font-mono text-muted-foreground">
-                    تم إيجاد <span className="text-primary font-bold">{resultData.usernameResult.totalFound}</span> / {resultData.usernameResult.totalPlatformsSearched} منصة
+                    <span className="text-primary font-bold">{resultData.usernameResult.totalFound}</span>
+                    <span> / {resultData.usernameResult.totalPlatformsSearched} منصة</span>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="pt-6">
+              <CardContent className="pt-4 sm:pt-6">
                 {resultData.usernameResult.possibleEmail && (
-                  <div className="mb-5 bg-secondary/30 px-4 py-2.5 rounded border border-border/40 inline-block">
+                  <div className="mb-4 sm:mb-5 bg-secondary/30 px-3 sm:px-4 py-2.5 rounded border border-border/40 inline-block max-w-full">
                     <span className="text-[10px] font-mono text-muted-foreground uppercase ml-2">البريد المحتمل:</span>
-                    <span className="text-primary font-mono" dir="ltr">{resultData.usernameResult.possibleEmail}</span>
+                    <span className="text-primary font-mono text-sm break-all" dir="ltr">{resultData.usernameResult.possibleEmail}</span>
                   </div>
                 )}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
                   {resultData.usernameResult.profilesFound && Object.entries(resultData.usernameResult.profilesFound).map(([platform, profile]) => (
                     <div
                       key={platform}
-                      className={`p-3.5 rounded border font-mono transition-all duration-200 ${
+                      className={`p-3 rounded border font-mono transition-all duration-200 ${
                         profile.exists
                           ? "bg-primary/5 border-primary/25 hover:border-primary/50 hover:bg-primary/10 group"
                           : "bg-secondary/10 border-border/20 opacity-40 grayscale"
@@ -335,7 +340,7 @@ export default function SearchResultPage() {
                         <span className="truncate">{platform}</span>
                       </div>
                       {profile.exists ? (
-                        <div className="space-y-1.5 text-xs">
+                        <div className="space-y-1 text-xs">
                           {profile.displayName && (
                             <div className="text-foreground/80 truncate">{profile.displayName}</div>
                           )}
@@ -357,7 +362,7 @@ export default function SearchResultPage() {
                           )}
                         </div>
                       ) : (
-                        <div className="text-[10px] text-muted-foreground mt-1.5 uppercase">غير موجود</div>
+                        <div className="text-[10px] text-muted-foreground mt-1 uppercase">غير موجود</div>
                       )}
                     </div>
                   ))}

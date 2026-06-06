@@ -247,10 +247,13 @@
 @layer base {
   * {
     @apply border-border;
+    box-sizing: border-box;
   }
 
   html {
     direction: rtl;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   body {
@@ -260,6 +263,7 @@
       linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
     background-size: 44px 44px;
     background-position: center center;
+    overflow-x: hidden;
   }
 
   body::after {
@@ -275,6 +279,10 @@
       rgba(0, 0, 0, 0.03) 2px,
       rgba(0, 0, 0, 0.03) 4px
     );
+  }
+
+  img, svg {
+    max-width: 100%;
   }
 }
 
@@ -388,6 +396,17 @@
   text-align: left;
 }
 
+/* ──────────────────────────────────────
+   MOBILE SAFE AREAS
+────────────────────────────────────── */
+@supports (padding: max(0px)) {
+  .main-content-area {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+  }
+}
+
 @layer utilities {
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;
@@ -411,5 +430,13 @@
   }
   .active-elevate:active:not(.no-default-active-elevate)::after {
     background-color: var(--elevate-2);
+  }
+  .break-all {
+    word-break: break-all;
+    overflow-wrap: anywhere;
+  }
+  .min-h-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 }

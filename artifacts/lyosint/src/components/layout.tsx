@@ -34,10 +34,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background text-foreground" dir="rtl">
-        <Sidebar side="right" className="border-l border-border bg-sidebar">
-          <SidebarHeader className="border-b border-border p-5">
-            <div className="flex items-center gap-3 text-primary font-bold text-xl tracking-widest">
+      <div className="flex min-h-screen min-h-[100dvh] w-full bg-background text-foreground overflow-hidden" dir="rtl">
+        <Sidebar side="right" className="border-l border-border bg-sidebar shrink-0">
+          <SidebarHeader className="border-b border-border p-4 sm:p-5">
+            <div className="flex items-center gap-3 text-primary font-bold text-lg sm:text-xl tracking-widest">
               <Terminal className="w-5 h-5 shrink-0" />
               <span className="text-glow font-mono">LYOSINT</span>
             </div>
@@ -46,7 +46,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </SidebarHeader>
 
-          <SidebarContent className="px-2 pt-4">
+          <SidebarContent className="px-2 pt-4 overflow-y-auto">
             <SidebarMenu className="space-y-1">
               {NAV_ITEMS.map(({ href, icon: Icon, label }, idx) => {
                 const isActive = href === "/" ? location === "/" : location.startsWith(href);
@@ -78,7 +78,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               })}
             </SidebarMenu>
 
-            <div className="mt-8 px-3">
+            <div className="mt-6 px-3">
               <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase font-mono mb-3">
                 <Palette className="w-3 h-3" />
                 الثيم
@@ -109,7 +109,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
           </SidebarContent>
 
-          <SidebarFooter className="border-t border-border p-4 space-y-2">
+          <SidebarFooter className="border-t border-border p-4 space-y-2 shrink-0">
             <div className="text-[10px] text-muted-foreground uppercase flex items-center justify-between font-mono">
               <span className="text-primary flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
@@ -123,16 +123,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </SidebarFooter>
         </Sidebar>
 
-        <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
-          <header className="h-14 border-b border-border flex items-center px-4 shrink-0 bg-background/95 backdrop-blur z-10 sticky top-0 gap-4">
-            <SidebarTrigger className="ml-auto" />
-            <div className="flex items-center gap-2 bg-secondary/60 px-3 py-1.5 rounded border border-border font-mono">
-              <span className="text-[10px] text-muted-foreground uppercase">التوقيت:</span>
+        <div className="flex-1 flex flex-col min-h-screen min-h-[100dvh] overflow-hidden min-w-0">
+          <header className="h-13 sm:h-14 border-b border-border flex items-center px-3 sm:px-4 shrink-0 bg-background/95 backdrop-blur z-10 sticky top-0 gap-3 sm:gap-4">
+            <SidebarTrigger className="ml-auto shrink-0" />
+            <div className="flex items-center gap-2 bg-secondary/60 px-2.5 sm:px-3 py-1.5 rounded border border-border font-mono overflow-hidden">
+              <span className="text-[10px] text-muted-foreground uppercase hidden sm:inline">التوقيت:</span>
               <LiveClock />
             </div>
           </header>
 
-          <main className="flex-1 overflow-auto p-6 scroll-smooth" dir="rtl">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6 scroll-smooth" dir="rtl">
             <div className="max-w-6xl mx-auto space-y-6">
               {children}
             </div>
