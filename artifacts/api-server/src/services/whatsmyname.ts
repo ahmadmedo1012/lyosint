@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
@@ -54,8 +54,15 @@ export interface WMNCheckOptions {
 let cachedSites: WMNSite[] | null = null;
 
 function getDataFilePath(): string {
+  // Source: src/services/whatsmyname.ts -> src/data/wmn-data.json
+  // Bundled: dist/index.mjs -> dist/data/wmn-data.json
+  // Try bundled location first (sibling of index.mjs), then fall back to source location
   const here = dirname(fileURLToPath(import.meta.url));
-  return resolve(here, "..", "data", "wmn-data.json");
+  const bundled = resolve(here, "data", "wmn-data.json");
+  if (existsSync(bundled)) return bundled;
+  const source = resolve(here, "..", "data", "wmn-data.json");
+  if (existsSync(source)) return source;
+  return bundled; // default to bundled path (will error visibly if missing)
 }
 
 export function loadWMNData(): WMNSite[] {
