@@ -42,6 +42,7 @@ export interface WMNResult {
   responseTimeMs: number;
   detectionMethod: "status_code" | "message";
   error?: string;
+  redirectTarget?: string;
 }
 
 export interface WMNCheckOptions {
@@ -98,6 +99,7 @@ interface SiteResult {
   httpStatus: number | null;
   responseTimeMs: number;
   error?: string;
+  redirectTarget?: string;
 }
 
 async function checkOneSite(
@@ -111,7 +113,6 @@ async function checkOneSite(
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), perSiteTimeoutMs);
-  // Chain the global signal: when global fires, also abort this request
   const onGlobalAbort = () => controller.abort();
   if (globalSignal) {
     if (globalSignal.aborted) controller.abort();
@@ -126,43 +127,65 @@ async function checkOneSite(
       ...(site.headers ?? {}),
     };
 
+    if (site.post_body) {
+      headers["Content-Type"] = "application/x-www-form-urlencoded";
+    }
+
     const fetchOpts: RequestInit = {
       method: site.post_body ? "POST" : "GET",
       headers,
       signal: controller.signal,
-      redirect: "follow",
+      body: site.post_body?.replace(/\{account\}/g, encodeURIComponent(username)),
     };
 
-    if (site.post_body) {
-      fetchOpts.body = site.post_body.replace(/\{account\}/g, encodeURIComponent(username));
-      headers["Content-Type"] = "application/x-www-form-urlencoded";
+    let resp: Response;
+    try {
+      resp = await fetch(url, fetchOpts);
+    } catch (err: any) {
+      // Some environments don't support redirect option — retry without it
+      if (err.message?.includes("redirect") || err.code === "ERR_INVALID_REDIRECT") {
+        const { redirect: _r, ...manualOpts } = fetchOpts as any;
+        resp = await fetch(url, fetchOpts);
+      } else {
+        throw err;
+      }
+    }
+    const httpStatus = resp.status;
+    const finalUrl = resp.url;
+    const elapsed = Date.now() - start;
+
+    // Detect cross-domain redirect (e.g. Facebook → Wattpad for non-existent accounts)
+    const originalHost = new URL(url).host;
+    const finalHost = new URL(finalUrl).host;
+    if (originalHost !== finalHost) {
+      return {
+        site,
+        found: false,
+        httpStatus,
+        responseTimeMs: elapsed,
+        error: `redirected_to_${finalHost.split(".").slice(-2).join(".")}`,
+        redirectTarget: finalUrl,
+      };
     }
 
-    const resp = await fetch(url, fetchOpts);
-    const httpStatus = resp.status;
-    // Hard race: body read must complete within perSiteTimeoutMs after the response
-    // (the AbortController should do this, but undici edge cases can leave the read hanging)
     const body = await Promise.race([
       resp.text(),
       new Promise<string>((_, reject) => {
         const t = setTimeout(() => reject(new Error("body_read_timeout")), perSiteTimeoutMs);
-        // If the controller aborts (per-site or global), reject early
         controller.signal.addEventListener("abort", () => {
           clearTimeout(t);
           reject(new Error("aborted"));
         }, { once: true });
       }),
     ]);
-    const elapsed = Date.now() - start;
+    const bodyLower = body.toLowerCase();
 
     let found = false;
-
     if (site.e_code !== site.m_code) {
       found = httpStatus === site.e_code;
     } else {
       const eStr = site.e_string?.toLowerCase() ?? "";
       const mStr = site.m_string?.toLowerCase() ?? "";
-      const bodyLower = body.toLowerCase();
       if (eStr && mStr) {
         const hasE = bodyLower.includes(eStr);
         const hasM = bodyLower.includes(mStr);
@@ -314,12 +337,13 @@ export function wmnResultToPlatformResult(r: WMNResult): {
   verified: boolean;
   profileData: Record<string, unknown>;
 } {
+  const isCrossRedirect = r.error?.startsWith("redirected_to_");
   return {
     slug: r.slug,
     name: r.siteName,
     category: r.category,
-    status: r.found ? "found" : r.error ? "error" : "not_found",
-    url: r.found ? r.uriPretty ?? r.uri : null,
+    status: r.found ? "found" : isCrossRedirect ? "not_found" : (r.error ? "error" : "not_found"),
+    url: r.found ? (r.uriPretty ?? r.uri) : null,
     verified: r.found && r.detectionMethod === "status_code",
     profileData: {
       source: "wmn",
@@ -329,6 +353,8 @@ export function wmnResultToPlatformResult(r: WMNResult): {
         httpStatus: r.httpStatus,
         responseTimeMs: r.responseTimeMs,
         detectionMethod: r.detectionMethod,
+        ...(r.error ? { error: r.error } : {}),
+        ...(isCrossRedirect ? { redirectTarget: r.redirectTarget } : {}),
       },
     },
   };

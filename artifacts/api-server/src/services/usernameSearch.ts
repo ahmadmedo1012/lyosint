@@ -5,7 +5,7 @@ import { getGitHubProfile } from "./githubOsint";
 import { checkHIBP, lookupTwitchUser, checkLeakCheck, checkEmailRep, crtShLookup } from "./freeApis";
 import { getSetting } from "./settingsService";
 import { checkWhatsMyName, wmnResultToPlatformResult, type WMNResult } from "./whatsmyname";
-import { runMaigret, isMaigretAvailable, startBackgroundInstall, type MaigretProfile } from "./maigret";
+import { runMaigret, isMaigretAvailable, startBackgroundInstall, type MaigretProfile, type MaigretResult } from "./maigret";
 
 // Start background install of maigret on module load
 startBackgroundInstall();
@@ -14,67 +14,112 @@ export async function runUsernameSearch(id: string, username: string): Promise<v
   try {
     await db.update(searchesTable).set({ status: "running", progress: 5 }).where(eq(searchesTable.id, id));
 
-    // Run httpChecker, Twitch, WhatsMyName, and Maigret in parallel
-    // Maigret is the slow path (Python subprocess + 500 sites + priority sites, ~30-120s)
-    // Background install of maigret started at module load (startBackgroundInstall)
-    const [platformResults, twitchData, wmnResultsRaw, maigretResult] = await Promise.allSettled([
+    // ── Phase 1: FAST — social media priority sites + httpChecker ──────────
+    // These complete in ~3-10s and are what users care about most.
+    const SOCIAL_WMN_SITES = [
+      "Twitter", "X", "Facebook", "Instagram", "LinkedIn", "YouTube", "TikTok",
+      "Reddit", "Pinterest", "Snapchat", "Tumblr", "Twitch", "Discord", "Telegram",
+      "WhatsApp", "Mastodon", "Threads", "Bluesky", "VK", "Weibo", "QQ", "WeChat",
+      "Gravatar", "GitHub", "GitLab", "Bitbucket", "StackOverflow", "Medium",
+      "Substack", "Blogger", "WordPress", "Flickr", "Vimeo",
+      "SoundCloud", "Bandcamp", "DeviantArt", "Behance", "Dribbble", "Figma",
+      "About.me", "Wattpad", "Quora",
+    ];
+
+    const [platformResults, twitchData, socialWmnRaw, maigretResult] = await Promise.allSettled([
       checkUsername(username),
       lookupTwitchUser(username),
-      checkWhatsMyName(username, { concurrency: 20, perSiteTimeoutMs: 5000, globalTimeoutMs: 30000 }),
+      checkWhatsMyName(username, {
+        concurrency: 30,
+        perSiteTimeoutMs: 4000,
+        globalTimeoutMs: 15000,
+        siteNames: SOCIAL_WMN_SITES,
+      }),
       isMaigretAvailable()
-        ? runMaigret(username, { timeoutMs: 8000, maxConnections: 30, maxSites: 500 })
+        ? runMaigret(username, { timeoutMs: 6000, maxConnections: 30, maxSites: 200 })
         : Promise.resolve({ username, found: [], totalFound: 0, elapsedSeconds: 0 }),
     ]);
 
     const results: PlatformResult[] = platformResults.status === "fulfilled" ? platformResults.value : [];
     const twitch = twitchData.status === "fulfilled" ? twitchData.value : null;
-    const wmnResults: WMNResult[] = wmnResultsRaw.status === "fulfilled" ? wmnResultsRaw.value : [];
-    const maigret = maigretResult.status === "fulfilled" ? maigretResult.value : null;
+    const socialWmn: WMNResult[] = socialWmnRaw.status === "fulfilled" ? socialWmnRaw.value : [];
+    const maigretPhase1 = maigretResult.status === "fulfilled" ? maigretResult.value : null;
 
-    // Merge WhatsMyName results (additive — don't overwrite existing httpChecker entries by slug)
-    const existingSlugs = new Set(results.map((r) => r.slug));
-    const wmnPlatformResults: PlatformResult[] = wmnResults
-      .filter((w) => !existingSlugs.has(w.slug))
+    // Merge Phase 1 results
+    const existingSlugs1 = new Set(results.map((r) => r.slug));
+    const wmnPlatformResults1: PlatformResult[] = socialWmn
+      .filter((w) => !existingSlugs1.has(w.slug))
       .map((w) => {
         const pr = wmnResultToPlatformResult(w);
-        return {
-          slug: pr.slug,
-          name: pr.name,
-          category: pr.category,
-          status: pr.status,
-          url: pr.url,
-          verified: pr.verified,
-          profileData: pr.profileData,
-        };
+        return { slug: pr.slug, name: pr.name, category: pr.category, status: pr.status, url: pr.url, verified: pr.verified, profileData: pr.profileData };
       });
 
-    // Merge Maigret results (additive — adds new slugs not yet seen)
-    const seenSlugs = new Set([...results.map((r) => r.slug), ...wmnPlatformResults.map((r) => r.slug)]);
-    const maigretPlatformResults: PlatformResult[] = maigret
-      ? maigret.found
-          .filter((m) => !seenSlugs.has(slugifyName(m.site)))
-          .map((m) => maigretToPlatformResult(m))
-      : [];
+    const seenSlugs1 = new Set([...results.map((r) => r.slug), ...wmnPlatformResults1.map((r) => r.slug)]);
+    const maigret1Found: MaigretProfile[] = maigretPhase1 ? maigretPhase1.found : [];
+    const maigretPlatformResults1: PlatformResult[] = maigret1Found
+      .filter((m) => !seenSlugs1.has(slugifyName(m.site)))
+      .map((m) => maigretToPlatformResult(m));
 
-    const mergedResults: PlatformResult[] = [...results, ...wmnPlatformResults, ...maigretPlatformResults];
+    const phase1merged = [...results, ...wmnPlatformResults1, ...maigretPlatformResults1];
+    const phase1ProfilesFound = buildProfilesMap(phase1merged, maigretPhase1, twitch, username);
 
+    // Save partial results immediately so frontend can render social media hits fast
+    const phase1totalFound = Object.values(phase1ProfilesFound).filter((p) => p.exists).length;
+    const partialResult = buildUsernameResult(username, phase1ProfilesFound, phase1merged, maigretPhase1, twitch, null, [], [], [] as any[], null as any);
     await db.update(searchesTable).set({
-      progress: 55,
-      platformsSearched: mergedResults.length,
+      progress: 25,
+      platformsSearched: phase1merged.length,
+      usernameResult: partialResult,
+      resultsCount: phase1totalFound,
     }).where(eq(searchesTable.id, id));
 
-    // Enrich GitHub result if found
+    const remainingWmnRaw: WMNResult[] = await checkWhatsMyName(username, {
+      concurrency: 20,
+      perSiteTimeoutMs: 5000,
+      globalTimeoutMs: 45000,
+    });
+    const SOCIAL_SLUGS = new Set(SOCIAL_WMN_SITES.map((n) => n.toLowerCase()));
+    const remainingWmn: WMNResult[] = remainingWmnRaw.filter(
+      (w) => !SOCIAL_SLUGS.has(w.siteName.toLowerCase()),
+    );
+
+    const maigretPhase2 = isMaigretAvailable()
+      ? await runMaigret(username, { timeoutMs: 8000, maxConnections: 30, maxSites: 500 }).catch(() => null)
+      : null;
+
+    const seenSlugs2 = new Set(phase1merged.map((r) => r.slug));
+    const wmnPlatformResults2: PlatformResult[] = remainingWmn
+      .filter((w) => !seenSlugs2.has(w.slug))
+      .map((w) => {
+        const pr = wmnResultToPlatformResult(w);
+        return { slug: pr.slug, name: pr.name, category: pr.category, status: pr.status, url: pr.url, verified: pr.verified, profileData: pr.profileData };
+      });
+
+    const finalMerged = [...phase1merged, ...wmnPlatformResults2];
+    const maigretFinal = maigretPhase2 ?? maigretPhase1;
+    const seenSlugs3 = new Set(finalMerged.map((r) => r.slug));
+    if (maigretFinal) {
+      for (const m of maigretFinal.found) {
+        const slug = slugifyName(m.site);
+        if (!seenSlugs3.has(slug)) {
+          finalMerged.push(maigretToPlatformResult(m));
+          seenSlugs3.add(slug);
+        }
+      }
+    }
+
+    await db.update(searchesTable).set({ progress: 55, platformsSearched: finalMerged.length }).where(eq(searchesTable.id, id));
+
+    // Enrich GitHub
     let githubProfile = null;
-    const ghResult = mergedResults.find((r) => r.slug === "github" && r.status === "found");
+    const ghResult = finalMerged.find((r) => r.slug === "github" && r.status === "found");
     if (ghResult) {
       githubProfile = await getGitHubProfile(username).catch(() => null);
     }
     await db.update(searchesTable).set({ progress: 68 }).where(eq(searchesTable.id, id));
 
-    // Build possible email from github or common patterns
+    // Breach & reputation
     const possibleEmail = githubProfile?.email ?? null;
-
-    // Run breach & reputation checks concurrently
     const hibpKey = await getSetting("hibp_api_key");
     const [breachesHIBP, breachesLeakCheck, emailRepData, certData] = await Promise.allSettled([
       hibpKey ? checkHIBP(username).catch(() => null) : Promise.resolve(null),
@@ -82,154 +127,30 @@ export async function runUsernameSearch(id: string, username: string): Promise<v
       possibleEmail ? checkEmailRep(possibleEmail).catch(() => null) : Promise.resolve(null),
       username.includes(".") ? crtShLookup(username).catch(() => []) : Promise.resolve([]),
     ]);
-
     const breaches = [
       ...(breachesHIBP.status === "fulfilled" && breachesHIBP.value ? breachesHIBP.value : []),
       ...(breachesLeakCheck.status === "fulfilled" && breachesLeakCheck.value
         ? breachesLeakCheck.value.map((l) => ({ name: l.source, breachDate: l.date ?? "", dataClasses: [] }))
         : []),
     ];
-
     const emailRep = emailRepData.status === "fulfilled" ? emailRepData.value : null;
     const certs = certData.status === "fulfilled" ? certData.value : [];
-
     await db.update(searchesTable).set({ progress: 88 }).where(eq(searchesTable.id, id));
 
-    // Build profiles map
-    const profilesFound: Record<string, {
-      url: string | null; exists: boolean; status: string; verified: boolean;
-      bio?: string | null; followers?: number | null; displayName?: string | null;
-      confidence: string | null; profileData?: Record<string, unknown>;
-    }> = {};
+    const profilesFoundFinal = buildProfilesMap(finalMerged, maigretFinal, twitch, username);
+    const totalFound = Object.values(profilesFoundFinal).filter((p) => p.exists).length;
+    const verifiedFound = Object.values(profilesFoundFinal).filter((p) => p.exists && p.verified).length;
 
-    for (const r of mergedResults) {
-      profilesFound[r.slug] = {
-        url: r.url,
-        exists: r.status === "found",
-        status: r.status,
-        verified: r.verified,
-        bio: (r.profileData as any)?.bio ?? null,
-        followers: (r.profileData as any)?.followers ?? null,
-        displayName: (r.profileData as any)?.name ?? null,
-        confidence: r.status === "found" ? (r.verified ? "high" : "medium") : null,
-        profileData: r.profileData,
-      };
-    }
-
-    // Add Twitch if found with API
-    if (twitch) {
-      profilesFound["twitch"] = {
-        url: `https://twitch.tv/${username}`, exists: true, status: "found", verified: true,
-        bio: twitch.description ?? null, followers: twitch.followers, displayName: twitch.displayName,
-        confidence: "high", profileData: twitch as unknown as Record<string, unknown>,
-      };
-    }
-
-    // Add Maigret profiles (richer data wins)
-    if (maigret) {
-      for (const m of maigret.found) {
-        const slug = slugifyName(m.site);
-        const existing = profilesFound[slug];
-        if (!existing || !existing.bio) {
-          // Maigret has bio/fullname/image — override or add
-          profilesFound[slug] = {
-            url: m.url,
-            exists: true,
-            status: "found",
-            verified: true,  // Maigret uses CSRF+redirect+JSON+regex detection — high quality
-            bio: m.bio,
-            displayName: m.fullname,
-            confidence: "high",
-            profileData: {
-              ...((existing?.profileData as Record<string, unknown>) ?? {}),
-              source: "maigret",
-              image: m.image,
-              fullname: m.fullname,
-              maigretExtra: m.extra,
-              httpStatus: m.httpStatus,
-            },
-          };
-        }
-      }
-    }
-
-    const totalFound = Object.values(profilesFound).filter((p) => p.exists).length;
-    const verifiedFound = Object.values(profilesFound).filter((p) => p.exists && p.verified).length;
-
-    // Confidence: verified hits + breach context + cert data
     const confidence = Math.round(Math.min(
       0.2 + verifiedFound * 0.05 + (githubProfile ? 0.15 : 0) + (breaches.length > 0 ? 0.05 : 0),
-      0.97
+      0.97,
     ) * 100) / 100;
 
-    // Aggregate sources actually used
-    const sourcesUsed: string[] = [];
-    if (results.length > 0) sourcesUsed.push("http-checker");
-    if (wmnResults.length > 0) sourcesUsed.push("whatsmyname");
-    if (maigret && maigret.found.length > 0) sourcesUsed.push("maigret");
-    if (twitch) sourcesUsed.push("twitch");
-    if (githubProfile) sourcesUsed.push("github");
-    if (breaches.length > 0) sourcesUsed.push("breaches");
-
-    // Derive top-level profile photo/bio/fullname from the richest source
-    // Priority: GitHub > Maigret (YouTube/Gravatar) > Twitch
-    let topPhoto: string | null = null;
-    let topBio: string | null = null;
-    let topFullname: string | null = null;
-    if (githubProfile) {
-      topPhoto = githubProfile.avatar ?? null;
-      topBio = githubProfile.bio ?? null;
-      topFullname = githubProfile.name ?? null;
-    }
-    if (!topPhoto && maigret) {
-      // Find first Maigret profile with an image
-      for (const m of maigret.found) {
-        if (m.image) { topPhoto = m.image; break; }
-      }
-    }
-    if (!topBio && maigret) {
-      for (const m of maigret.found) {
-        if (m.bio) { topBio = m.bio; break; }
-      }
-    }
-    if (!topFullname && maigret) {
-      for (const m of maigret.found) {
-        if (m.fullname) { topFullname = m.fullname; break; }
-      }
-    }
-    if (!topFullname && twitch?.displayName) {
-      topFullname = twitch.displayName;
-    }
-
-    const usernameResult = {
-      username,
-      profilesFound,
-      totalPlatformsSearched: mergedResults.length,
-      totalFound,
-      verifiedFound,
-      githubProfile,
-      breaches,
-      emailRep,
-      certDomains: certs.slice(0, 10).map((c: any) => c.domain),
-      possibleEmail,
-      sources: sourcesUsed,
-      profilePhoto: topPhoto,
-      profileBio: topBio,
-      profileFullname: topFullname,
-      maigretProfiles: maigret?.found ?? [],
-      summary: {
-        realName: topFullname ?? githubProfile?.name ?? null,
-        location: githubProfile?.location ?? null,
-        bio: topBio ?? githubProfile?.bio ?? null,
-        languages: githubProfile?.languages ?? [],
-        totalRepos: githubProfile?.publicRepos ?? null,
-        totalStars: githubProfile?.totalStars ?? null,
-      },
-    };
+    const usernameResult = buildUsernameResult(username, profilesFoundFinal, finalMerged, maigretFinal, twitch, githubProfile, breaches, emailRep, certs, possibleEmail);
 
     await db.update(searchesTable).set({
       status: "completed", progress: 100,
-      platformsSearched: mergedResults.length,
+      platformsSearched: finalMerged.length,
       usernameResult, confidenceScore: confidence,
       resultsCount: totalFound, completedAt: new Date(),
     }).where(eq(searchesTable.id, id));
@@ -239,6 +160,130 @@ export async function runUsernameSearch(id: string, username: string): Promise<v
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+function buildProfilesMap(merged: PlatformResult[], maigret: MaigretResult | null, twitch: any, username: string) {
+  const profilesFound: Record<string, {
+    url: string | null; exists: boolean; status: string; verified: boolean;
+    bio?: string | null; followers?: number | null; displayName?: string | null;
+    confidence: string | null; profileData?: Record<string, unknown>;
+  }> = {};
+
+  for (const r of merged) {
+    profilesFound[r.slug] = {
+      url: r.url,
+      exists: r.status === "found",
+      status: r.status,
+      verified: r.verified,
+      bio: (r.profileData as any)?.bio ?? null,
+      followers: (r.profileData as any)?.followers ?? null,
+      displayName: (r.profileData as any)?.name ?? null,
+      confidence: r.status === "found" ? (r.verified ? "high" : "medium") : null,
+      profileData: r.profileData,
+    };
+  }
+  if (twitch) {
+    profilesFound["twitch"] = {
+      url: `https://twitch.tv/${username}`, exists: true, status: "found", verified: true,
+      bio: twitch.description ?? null, followers: twitch.followers, displayName: twitch.displayName,
+      confidence: "high", profileData: twitch as unknown as Record<string, unknown>,
+    };
+  }
+  if (maigret) {
+    for (const m of maigret.found) {
+      const slug = slugifyName(m.site);
+      const existing = profilesFound[slug];
+      if (!existing || !existing.bio) {
+        profilesFound[slug] = {
+          url: m.url, exists: true, status: "found", verified: true,
+          bio: m.bio, displayName: m.fullname, confidence: "high",
+          profileData: {
+            ...((existing?.profileData as Record<string, unknown>) ?? {}),
+            source: "maigret", image: m.image, fullname: m.fullname,
+            maigretExtra: m.extra, httpStatus: m.httpStatus,
+          },
+        };
+      }
+    }
+  }
+  return profilesFound;
+}
+
+function deriveTopLevelImage(profilesFound: Record<string, any>, maigret: MaigretResult | null): string | null {
+  for (const m of maigret?.found ?? []) {
+    if (m.image) return m.image;
+  }
+  return null;
+}
+
+function deriveBio(profilesFound: Record<string, any>, maigret: MaigretResult | null): string | null {
+  for (const m of maigret?.found ?? []) {
+    if (m.bio) return m.bio;
+  }
+  const firstWithBio = Object.values(profilesFound).find((p) => p.bio);
+  return firstWithBio?.bio ?? null;
+}
+
+function deriveFullname(profilesFound: Record<string, any>, maigret: MaigretResult | null, twitch: any): string | null {
+  if (twitch?.displayName) return twitch.displayName;
+  for (const m of maigret?.found ?? []) {
+    if (m.fullname) return m.fullname;
+  }
+  const firstWithName = Object.values(profilesFound).find((p) => p.displayName);
+  return firstWithName?.displayName ?? null;
+}
+
+function buildUsernameResult(
+  username: string,
+  profilesFound: Record<string, any>,
+  mergedResults: PlatformResult[],
+  maigret: MaigretResult | null,
+  twitch: any,
+  githubProfile: any,
+  breaches: any[],
+  emailRep: any,
+  certs: any[],
+  possibleEmail: string | null,
+) {
+  const totalFound = Object.values(profilesFound).filter((p) => p.exists).length;
+
+  // Derive top-level fields from richest source
+  const topPhoto = deriveTopLevelImage(profilesFound, maigret);
+  const topBio = deriveBio(profilesFound, maigret);
+  const topFullname = deriveFullname(profilesFound, maigret, twitch);
+
+  const sourcesUsed: string[] = [];
+  if (mergedResults.some((r) => r.status === "found")) sourcesUsed.push("http-checker");
+  if (maigret && maigret.found.length > 0) sourcesUsed.push("maigret");
+  if (twitch) sourcesUsed.push("twitch");
+  if (githubProfile) sourcesUsed.push("github");
+  if (breaches.length > 0) sourcesUsed.push("breaches");
+
+  return {
+    username,
+    profilesFound,
+    totalPlatformsSearched: mergedResults.length,
+    totalFound,
+    verifiedFound: Object.values(profilesFound).filter((p) => p.exists && p.verified).length,
+    githubProfile,
+    breaches,
+    emailRep,
+    certDomains: certs.slice(0, 10).map((c: any) => c.domain),
+    possibleEmail,
+    sources: sourcesUsed,
+    profilePhoto: topPhoto,
+    profileBio: topBio,
+    profileFullname: topFullname,
+    maigretProfiles: maigret?.found ?? [],
+    summary: {
+      realName: topFullname ?? githubProfile?.name ?? null,
+      location: githubProfile?.location ?? null,
+      bio: topBio ?? githubProfile?.bio ?? null,
+      languages: githubProfile?.languages ?? [],
+      totalRepos: githubProfile?.publicRepos ?? null,
+      totalStars: githubProfile?.totalStars ?? null,
+    },
+  };
+}
 
 function slugifyName(name: string): string {
   return name
@@ -255,7 +300,7 @@ function maigretToPlatformResult(m: MaigretProfile): PlatformResult {
     category: m.category,
     status: "found",
     url: m.url,
-    verified: true,  // Maigret's detection is more accurate than WMN
+    verified: true,
     profileData: {
       source: "maigret",
       fullname: m.fullname,

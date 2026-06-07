@@ -103,10 +103,18 @@ export default function SearchResultPage() {
 
   const { data: resultData, isLoading: resultLoading } = useGetSearchResult(id!, {
     query: {
-      enabled: !!id && isCompleted,
+      enabled: !!id && (isCompleted || isRunning),
       queryKey: getGetSearchStatusQueryKey(id!) as unknown as readonly unknown[],
+      refetchInterval: (query) => {
+        const d = query.state.data;
+        if (isCompleted || isFailed) return false;
+        if (d && d.usernameResult && Object.keys(d.usernameResult?.profilesFound || {}).length > 0) return 2000;
+        return 1500;
+      },
     },
   });
+
+  const displayResult = resultData;
 
   return (
     <div className="space-y-4 sm:space-y-5 max-w-5xl mx-auto pb-10 page-transition" dir="rtl">
@@ -172,38 +180,37 @@ export default function SearchResultPage() {
         </div>
       )}
 
-      {/* ── Loading skeleton ── */}
-      {isCompleted && resultLoading && (
-        <div className="space-y-4">
-          <Skeleton className="h-16 w-full rounded-xl" />
-          <Skeleton className="h-64 w-full rounded-xl" />
-          <Skeleton className="h-64 w-full rounded-xl" />
-        </div>
-      )}
-
-      {/* ── Results ── */}
-      {isCompleted && resultData && (
+      {/* ── Results (partial during search, complete when done) ── */}
+      {displayResult && (
         <div className="space-y-4 sm:space-y-5 page-transition">
 
+          {/* Incremental badge */}
+          {isRunning && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-400 text-xs font-mono animate-pulse">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              نتائج أولية — جاري البحث عن المزيد...
+            </div>
+          )}
+
           {/* Confidence */}
-          {resultData.confidenceScore !== undefined && resultData.confidenceScore !== null && (
-            <ConfidenceBar score={resultData.confidenceScore} />
+          {displayResult.confidenceScore !== undefined && displayResult.confidenceScore !== null && (
+            <ConfidenceBar score={displayResult.confidenceScore} />
           )}
 
           {/* ── Name Result ── */}
-          {resultData.nameResult && (
+          {displayResult.nameResult && (
             <Card className="border-border/50 glow-box overflow-hidden">
               <CardContent className="p-5">
                 <SectionHeader icon={User} title="معلومات شخصية" subtitle="تحليل الهوية والبيانات المرتبطة" />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-0">
-                    <DataRow label="الاسم الكامل" value={resultData.nameResult.fullName || "غير محدد"} dir="auto" />
-                    {resultData.nameResult.possibleVariations && resultData.nameResult.possibleVariations.length > 0 && (
+                    <DataRow label="الاسم الكامل" value={displayResult.nameResult.fullName || "غير محدد"} dir="auto" />
+                    {displayResult.nameResult.possibleVariations && displayResult.nameResult.possibleVariations.length > 0 && (
                       <div className="py-2.5 border-b border-border/20">
                         <div className="text-xs text-muted-foreground uppercase font-mono mb-2">الأسماء المشابهة</div>
                         <div className="flex flex-wrap gap-1.5">
-                          {resultData.nameResult.possibleVariations.map((alias) => (
+                          {displayResult.nameResult.possibleVariations.map((alias) => (
                             <Badge key={alias} variant="secondary" className="font-mono text-xs" dir="ltr">{alias}</Badge>
                           ))}
                         </div>
@@ -212,25 +219,25 @@ export default function SearchResultPage() {
                   </div>
 
                   <div className="space-y-4">
-                    {resultData.nameResult.usernameVariants && resultData.nameResult.usernameVariants.length > 0 && (
+                    {displayResult.nameResult.usernameVariants && displayResult.nameResult.usernameVariants.length > 0 && (
                       <div>
                         <div className="text-xs text-muted-foreground uppercase font-mono mb-2 flex items-center gap-1">
                           <AtSign className="w-3 h-3" /> متغيرات اليوزرنيم
                         </div>
                         <div className="flex flex-wrap gap-1.5">
-                          {resultData.nameResult.usernameVariants.map((v) => (
+                          {displayResult.nameResult.usernameVariants.map((v) => (
                             <Badge key={v} variant="outline" className="font-mono text-xs" dir="ltr">{v}</Badge>
                           ))}
                         </div>
                       </div>
                     )}
-                    {resultData.nameResult.githubUsers && resultData.nameResult.githubUsers.length > 0 && (
+                    {displayResult.nameResult.githubUsers && displayResult.nameResult.githubUsers.length > 0 && (
                       <div>
                         <div className="text-xs text-muted-foreground uppercase font-mono mb-2 flex items-center gap-1">
                           <Github className="w-3 h-3" /> مستخدمو GitHub المحتملون
                         </div>
                         <ul className="space-y-1.5">
-                          {resultData.nameResult.githubUsers.map((u) => (
+                          {displayResult.nameResult.githubUsers.map((u) => (
                             <li key={u.login} className="flex items-center justify-between bg-secondary/30 px-3 py-2 rounded-lg border border-border/30">
                               <a href={u.url} target="_blank" rel="noopener noreferrer" className="text-primary font-mono text-sm hover:underline" dir="ltr">
                                 {u.login}
@@ -247,7 +254,7 @@ export default function SearchResultPage() {
           )}
 
           {/* ── Phone Result ── */}
-          {resultData.phoneResult && (
+          {displayResult.phoneResult && (
             <Card className="border-border/50 glow-box overflow-hidden">
               <CardContent className="p-5">
                 <SectionHeader icon={Phone} title="بيانات الاتصالات" subtitle="تحليل رقم الهاتف ومزود الخدمة" />
@@ -256,45 +263,45 @@ export default function SearchResultPage() {
                   <div className="space-y-0">
                     <div className="py-3 border-b border-border/20 flex items-center justify-between">
                       <div className="font-mono text-xl font-bold text-foreground" dir="ltr">
-                        {resultData.phoneResult.nationalFormat || resultData.phoneResult.phone}
+                        {displayResult.phoneResult.nationalFormat || displayResult.phoneResult.phone}
                       </div>
                       <div className="flex items-center gap-2">
-                        <CopyButton text={resultData.phoneResult.phone || ""} />
-                        <Badge variant="outline" className={`font-mono text-xs ${resultData.phoneResult.valid ? "text-green-400 border-green-500/40" : "text-destructive border-destructive/40"}`}>
-                          {resultData.phoneResult.valid ? "✓ صالح" : "✗ غير صالح"}
+                        <CopyButton text={displayResult.phoneResult.phone || ""} />
+                        <Badge variant="outline" className={`font-mono text-xs ${displayResult.phoneResult.valid ? "text-green-400 border-green-500/40" : "text-destructive border-destructive/40"}`}>
+                          {displayResult.phoneResult.valid ? "✓ صالح" : "✗ غير صالح"}
                         </Badge>
                       </div>
                     </div>
                     <DataRow label="المشغّل" value={
                       <span className={`flex items-center gap-1.5 ${
-                        resultData.phoneResult.carrier?.includes("Madar") ? "text-blue-400" :
-                        resultData.phoneResult.carrier?.includes("Libyana") ? "text-purple-400" : ""
+                        displayResult.phoneResult.carrier?.includes("Madar") ? "text-blue-400" :
+                        displayResult.phoneResult.carrier?.includes("Libyana") ? "text-purple-400" : ""
                       }`}>
                         <Network className="w-3 h-3 shrink-0" />
-                        {resultData.phoneResult.carrier || "غير محدد"}
+                        {displayResult.phoneResult.carrier || "غير محدد"}
                       </span>
                     } />
-                    <DataRow label="نوع الخط" value={resultData.phoneResult.lineType || "غير محدد"} mono />
-                    {resultData.phoneResult.region && (
-                      <DataRow label="المنطقة" value={resultData.phoneResult.region} />
+                    <DataRow label="نوع الخط" value={displayResult.phoneResult.lineType || "غير محدد"} mono />
+                    {displayResult.phoneResult.region && (
+                      <DataRow label="المنطقة" value={displayResult.phoneResult.region} />
                     )}
-                    {resultData.phoneResult.countryName && (
-                      <DataRow label="الدولة" value={`${resultData.phoneResult.countryName}${resultData.phoneResult.countryCode ? ` (${resultData.phoneResult.countryCode})` : ""}`} />
+                    {displayResult.phoneResult.countryName && (
+                      <DataRow label="الدولة" value={`${displayResult.phoneResult.countryName}${displayResult.phoneResult.countryCode ? ` (${displayResult.phoneResult.countryCode})` : ""}`} />
                     )}
-                    {resultData.phoneResult.phoneMeta?.numberType && (
+                    {displayResult.phoneResult.phoneMeta?.numberType && (
                       <DataRow
                         label="نوع الرقم (libphonenumber)"
                         value={
                           <Badge variant="outline" className="font-mono text-[10px] uppercase">
-                            {resultData.phoneResult.phoneMeta.numberType}
+                            {displayResult.phoneResult.phoneMeta.numberType}
                           </Badge>
                         }
                       />
                     )}
-                    {resultData.phoneResult.phoneMeta?.internationalFormat && (
+                    {displayResult.phoneResult.phoneMeta?.internationalFormat && (
                       <DataRow
                         label="الصيغة الدولية"
-                        value={resultData.phoneResult.phoneMeta.internationalFormat}
+                        value={displayResult.phoneResult.phoneMeta.internationalFormat}
                         mono
                         dir="ltr"
                       />
@@ -306,8 +313,8 @@ export default function SearchResultPage() {
                       <div className="text-xs text-muted-foreground uppercase font-mono mb-2.5">المنصات المرتبطة</div>
                       <div className="grid grid-cols-2 gap-2">
                         {[
-                          { name: "WhatsApp", status: resultData.phoneResult.messagingApps.whatsapp, color: "green" },
-                          { name: "Telegram", status: resultData.phoneResult.messagingApps.telegram, color: "blue" },
+                          { name: "WhatsApp", status: displayResult.phoneResult.messagingApps.whatsapp, color: "green" },
+                          { name: "Telegram", status: displayResult.phoneResult.messagingApps.telegram, color: "blue" },
                         ].map(({ name, status, color }) => (
                           <a
                             key={name}
@@ -337,13 +344,13 @@ export default function SearchResultPage() {
                       <p className="text-[10px] text-muted-foreground/60 mt-1.5">تحقق يدوياً عبر الرابط — لا يمكن فحص التسجيل تلقائياً</p>
                     </div>
 
-                    {resultData.phoneResult.investigativeLinks && resultData.phoneResult.investigativeLinks.length > 0 && (
+                    {displayResult.phoneResult.investigativeLinks && displayResult.phoneResult.investigativeLinks.length > 0 && (
                       <div>
                         <div className="text-xs text-muted-foreground uppercase font-mono mb-2 flex items-center gap-1">
                           <LinkIcon className="w-3 h-3" /> روابط التحقيق
                         </div>
                         <ul className="space-y-1.5">
-                          {resultData.phoneResult.investigativeLinks.map((l) => (
+                          {displayResult.phoneResult.investigativeLinks.map((l) => (
                             <li key={l.url} className="flex items-center justify-between bg-secondary/30 px-3 py-2 rounded-lg border border-border/30">
                               <a href={l.url} target="_blank" rel="noopener noreferrer" className="text-primary font-mono text-xs hover:underline flex items-center gap-1.5">
                                 {l.label}
@@ -356,9 +363,9 @@ export default function SearchResultPage() {
                       </div>
                     )}
 
-                    {resultData.phoneResult.dataSource && (
+                    {displayResult.phoneResult.dataSource && (
                       <p className="text-[10px] text-muted-foreground/50 font-mono">
-                        مصدر البيانات: {resultData.phoneResult.dataSource}
+                        مصدر البيانات: {displayResult.phoneResult.dataSource}
                       </p>
                     )}
                   </div>
@@ -368,33 +375,33 @@ export default function SearchResultPage() {
           )}
 
           {/* ── Username Result ── */}
-          {resultData.usernameResult && (
+          {displayResult.usernameResult && (
             <Card className="border-border/50 glow-box overflow-hidden">
               <CardContent className="p-5">
                 <SectionHeader
                   icon={AtSign}
                   title="البصمة الرقمية"
-                  subtitle={`${resultData.usernameResult.totalFound} / ${resultData.usernameResult.totalPlatformsSearched} منصة`}
+                  subtitle={`${displayResult.usernameResult.totalFound} / ${displayResult.usernameResult.totalPlatformsSearched} منصة`}
                 />
 
-                {(resultData.usernameResult as any).profilePhoto && (
+                {(displayResult.usernameResult as any).profilePhoto && (
                   <div className="mb-4 flex items-center gap-4 px-4 py-3 bg-secondary/30 rounded-lg border border-border/40">
                     <img
-                      src={(resultData.usernameResult as any).profilePhoto as string}
+                      src={(displayResult.usernameResult as any).profilePhoto as string}
                       alt="profile"
                       className="w-14 h-14 rounded-full object-cover border-2 border-primary/30 shrink-0"
                       referrerPolicy="no-referrer"
                       onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                     />
                     <div className="min-w-0 flex-1 space-y-0.5">
-                      {(resultData.usernameResult as any).profileFullname && (
+                      {(displayResult.usernameResult as any).profileFullname && (
                         <div className="font-bold text-foreground truncate" dir="auto">
-                          {(resultData.usernameResult as any).profileFullname}
+                          {(displayResult.usernameResult as any).profileFullname}
                         </div>
                       )}
-                      {(resultData.usernameResult as any).profileBio && (
+                      {(displayResult.usernameResult as any).profileBio && (
                         <div className="text-xs text-muted-foreground line-clamp-2" dir="auto">
-                          {(resultData.usernameResult as any).profileBio}
+                          {(displayResult.usernameResult as any).profileBio}
                         </div>
                       )}
                     </div>
@@ -402,17 +409,17 @@ export default function SearchResultPage() {
                 )}
 
                 {/* ── Maigret rich profiles (image/fullname/bio per site) ── */}
-                {(resultData.usernameResult as any).maigretProfiles && (resultData.usernameResult as any).maigretProfiles.length > 0 && (
+                {(displayResult.usernameResult as any).maigretProfiles && (displayResult.usernameResult as any).maigretProfiles.length > 0 && (
                   <div className="mb-4">
                     <div className="text-[10px] text-muted-foreground uppercase font-mono mb-2.5 flex items-center gap-1.5">
                       <Database className="w-3 h-3 text-primary" />
-                      البروفايلات من Maigret ({(resultData.usernameResult as any).maigretProfiles.length})
+                      البروفايلات من Maigret ({(displayResult.usernameResult as any).maigretProfiles.length})
                       <span className="text-[9px] text-muted-foreground/50">
-                        ({((resultData.usernameResult as any).maigretProfiles as any[]).filter(p => p.isPriority).length} تواصل اجتماعي)
+                        ({((displayResult.usernameResult as any).maigretProfiles as any[]).filter(p => p.isPriority).length} تواصل اجتماعي)
                       </span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {((resultData.usernameResult as any).maigretProfiles as any[])
+                      {((displayResult.usernameResult as any).maigretProfiles as any[])
                         .slice(0, 12)
                         .map((p, i) => (
                           <a
@@ -471,10 +478,10 @@ export default function SearchResultPage() {
                   </div>
                 )}
 
-                {(resultData.usernameResult as any).sources && (resultData.usernameResult as any).sources.length > 0 && (
+                {(displayResult.usernameResult as any).sources && (displayResult.usernameResult as any).sources.length > 0 && (
                   <div className="mb-4 flex flex-wrap items-center gap-1.5">
                     <span className="text-[10px] text-muted-foreground uppercase font-mono">المصادر:</span>
-                    {((resultData.usernameResult as any).sources as string[]).map((s: string) => (
+                    {((displayResult.usernameResult as any).sources as string[]).map((s: string) => (
                       <Badge key={s} variant="outline" className="text-[10px] font-mono">
                         {s}
                       </Badge>
@@ -487,20 +494,20 @@ export default function SearchResultPage() {
                   {[
                     {
                       label: "موجود في",
-                      value: resultData.usernameResult.totalFound,
+                      value: displayResult.usernameResult.totalFound,
                       color: "text-primary",
                       bg: "bg-primary/5 border-primary/15",
                     },
                     {
                       label: "مفحوصة",
-                      value: resultData.usernameResult.totalPlatformsSearched,
+                      value: displayResult.usernameResult.totalPlatformsSearched,
                       color: "text-foreground",
                       bg: "bg-secondary/30 border-border/30",
                     },
                     {
                       label: "نسبة الظهور",
-                      value: `${Math.round(((resultData.usernameResult.totalFound ?? 0) / Math.max(1, resultData.usernameResult.totalPlatformsSearched ?? 0)) * 100)}%`,
-                      color: (resultData.usernameResult.totalFound ?? 0) > 10 ? "text-amber-400" : "text-green-400",
+                      value: `${Math.round(((displayResult.usernameResult.totalFound ?? 0) / Math.max(1, displayResult.usernameResult.totalPlatformsSearched ?? 0)) * 100)}%`,
+                      color: (displayResult.usernameResult.totalFound ?? 0) > 10 ? "text-amber-400" : "text-green-400",
                       bg: "bg-secondary/20 border-border/20",
                     },
                   ].map(({ label, value, color, bg }) => (
@@ -511,23 +518,23 @@ export default function SearchResultPage() {
                   ))}
                 </div>
 
-                {resultData.usernameResult.possibleEmail && (
+                {displayResult.usernameResult.possibleEmail && (
                   <div className="mb-4 flex items-center gap-3 px-3.5 py-2.5 bg-secondary/30 rounded-lg border border-border/40">
                     <Key className="w-3.5 h-3.5 text-primary shrink-0" />
                     <span className="text-xs text-muted-foreground uppercase font-mono">البريد المحتمل:</span>
-                    <span className="text-primary font-mono text-sm flex-1" dir="ltr">{resultData.usernameResult.possibleEmail}</span>
-                    <CopyButton text={resultData.usernameResult.possibleEmail} />
+                    <span className="text-primary font-mono text-sm flex-1" dir="ltr">{displayResult.usernameResult.possibleEmail}</span>
+                    <CopyButton text={displayResult.usernameResult.possibleEmail} />
                   </div>
                 )}
 
                 {/* Breaches */}
-                {resultData.usernameResult.breaches && resultData.usernameResult.breaches.length > 0 && (
+                {displayResult.usernameResult.breaches && displayResult.usernameResult.breaches.length > 0 && (
                   <div className="mb-4 p-3.5 rounded-lg border border-red-500/25 bg-red-500/6">
                     <div className="text-[10px] font-mono text-red-400 uppercase mb-2 flex items-center gap-1">
-                      <Database className="w-3 h-3" /> تسريبات بيانات ({resultData.usernameResult.breaches.length})
+                      <Database className="w-3 h-3" /> تسريبات بيانات ({displayResult.usernameResult.breaches.length})
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      {resultData.usernameResult.breaches.map((b: any) => (
+                      {displayResult.usernameResult.breaches.map((b: any) => (
                         <Badge key={b.name} variant="outline" className="text-[10px] border-red-500/25 text-red-400 font-mono">
                           {b.name} {b.breachDate && `(${b.breachDate.split("-")[0]})`}
                         </Badge>
@@ -537,17 +544,17 @@ export default function SearchResultPage() {
                 )}
 
                 {/* Platform grid */}
-                {resultData.usernameResult.profilesFound && (
+                {displayResult.usernameResult.profilesFound && (
                   <>
                     {/* Found platforms */}
-                    {Object.entries(resultData.usernameResult.profilesFound).filter(([, p]: [string, any]) => p.exists).length > 0 && (
+                    {Object.entries(displayResult.usernameResult.profilesFound).filter(([, p]: [string, any]) => p.exists).length > 0 && (
                       <div className="mb-3">
                         <div className="text-[10px] text-muted-foreground uppercase font-mono mb-2.5 flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3 text-green-400" />
                           الحسابات المُكتشفة
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                          {Object.entries(resultData.usernameResult.profilesFound)
+                          {Object.entries(displayResult.usernameResult.profilesFound)
                             .filter(([, p]: [string, any]) => p.exists)
                             .map(([platform, profile]: [string, any]) => (
                               <div key={platform} className="group relative overflow-hidden rounded-lg border border-primary/20 bg-primary/4 hover:border-primary/40 hover:bg-primary/8 transition-all p-3">
@@ -576,14 +583,14 @@ export default function SearchResultPage() {
                     )}
 
                     {/* Not found platforms */}
-                    {Object.entries(resultData.usernameResult.profilesFound).filter(([, p]: [string, any]) => !p.exists).length > 0 && (
+                    {Object.entries(displayResult.usernameResult.profilesFound).filter(([, p]: [string, any]) => !p.exists).length > 0 && (
                       <details className="mt-2">
                         <summary className="text-[10px] text-muted-foreground/50 uppercase font-mono cursor-pointer hover:text-muted-foreground transition-colors flex items-center gap-1.5 py-1">
                           <Globe className="w-3 h-3" />
-                          المنصات غير المُكتشفة ({Object.entries(resultData.usernameResult.profilesFound).filter(([, p]: [string, any]) => !p.exists).length})
+                          المنصات غير المُكتشفة ({Object.entries(displayResult.usernameResult.profilesFound).filter(([, p]: [string, any]) => !p.exists).length})
                         </summary>
                         <div className="mt-2 flex flex-wrap gap-1.5">
-                          {Object.entries(resultData.usernameResult.profilesFound)
+                          {Object.entries(displayResult.usernameResult.profilesFound)
                             .filter(([, p]: [string, any]) => !p.exists)
                             .map(([platform]) => (
                               <span key={platform} className="text-[10px] px-2 py-0.5 rounded bg-secondary/20 border border-border/20 text-muted-foreground/40 font-mono uppercase">
