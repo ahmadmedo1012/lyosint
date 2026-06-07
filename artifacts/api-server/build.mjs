@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { rm } from "node:fs/promises";
+import { rm, mkdir, copyFile } from "node:fs/promises";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -118,6 +118,16 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
   });
+
+  // Copy static data files (e.g. wmn-data.json for WhatsMyName) to dist
+  const dataSrcDir = path.resolve(artifactDir, "src/data");
+  const dataDstDir = path.resolve(distDir, "data");
+  await mkdir(dataDstDir, { recursive: true });
+  try {
+    await copyFile(path.join(dataSrcDir, "wmn-data.json"), path.join(dataDstDir, "wmn-data.json"));
+  } catch (err) {
+    console.warn("[build] wmn-data.json not found at src/data/, skipping copy");
+  }
 }
 
 buildAll().catch((err) => {
