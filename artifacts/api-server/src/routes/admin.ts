@@ -4,6 +4,8 @@ import { db, usersTable, searchesTable } from "@workspace/db";
 import { eq, desc, count } from "drizzle-orm";
 import { toPublicUser } from "./auth";
 import { logger } from "../lib/logger";
+import { isMaigretAvailable } from "../services/maigret";
+import { existsSync } from "node:fs";
 import {
   getAllSettingRows,
   setSetting,
@@ -90,6 +92,98 @@ router.post("/admin/logout", requireAdminToken, (req, res) => {
 });
 
 // ── Stats ────────────────────────────────────────────────────────────────────
+
+// Diagnostics — check OSINT tool availability in running container
+router.get("/admin/osint-status", requireAdminToken, async (_req, res) => {
+  try {
+    const candidatePaths = [
+      "/usr/local/bin/python3",
+      "/usr/bin/python3",
+      "python3",
+    ];
+    const pythonInfo: { path: string; available: boolean; version?: string } = { path: "", available: false };
+    for (const p of candidatePaths) {
+      if (p.startsWith("/") ? existsSync(p) : true) {
+        pythonInfo.path = p;
+        pythonInfo.available = true;
+        break;
+      }
+    }
+    let pythonVersion: string | null = null;
+    try {
+      const { execSync } = await import("node:child_process");
+      pythonVersion = execSync(`${pythonInfo.path} --version 2>&1 || true`).toString().trim();
+    } catch {}
+
+    let maigretInfo: { available: boolean; runnerPath: string; version?: string; dataPath?: string; siteCount?: number } = {
+      available: false, runnerPath: "",
+    };
+    try {
+      maigretInfo.available = isMaigretAvailable();
+      // Find the actual runner path
+      const here = process.cwd();
+      const candidates = [
+        `${here}/artifacts/api-server/dist/scripts/maigret_runner.py`,
+        `${here}/dist/scripts/maigret_runner.py`,
+        "/app/artifacts/api-server/dist/scripts/maigret_runner.py",
+      ];
+      for (const c of candidates) {
+        if (existsSync(c)) { maigretInfo.runnerPath = c; break; }
+      }
+      if (pythonInfo.available) {
+        const { execSync } = await import("node:child_process");
+        try {
+          const out = execSync(
+            `${pythonInfo.path} -c "import maigret, os; print(os.path.dirname(maigret.__file__))"`,
+            { timeout: 10000, stdio: ["ignore", "pipe", "pipe"] },
+          ).toString().trim();
+          maigretInfo.dataPath = out;
+        } catch {}
+        try {
+          const out2 = execSync(
+            `${pythonInfo.path} -c "import maigret; print(maigret.__version__ if hasattr(maigret,'__version__') else 'unknown')"`,
+            { timeout: 10000, stdio: ["ignore", "pipe", "pipe"] },
+          ).toString().trim();
+          maigretInfo.version = out2;
+        } catch {}
+        try {
+          const out3 = execSync(
+            `${pythonInfo.path} -c "from maigret import MaigretDatabase; d=MaigretDatabase(); d.load_from_path('${maigretInfo.dataPath}/resources/data.json'); print(len(d.sites_dict))"`,
+            { timeout: 30000, stdio: ["ignore", "pipe", "pipe"] },
+          ).toString().trim();
+          maigretInfo.siteCount = parseInt(out3, 10) || 0;
+        } catch {}
+      }
+    } catch (err: any) {
+      maigretInfo.runnerPath = `error: ${err.message}`;
+    }
+
+    // Check WMN
+    const wmnPath = (() => {
+      const here = process.cwd();
+      const cands = [
+        `${here}/artifacts/api-server/dist/data/wmn-data.json`,
+        `${here}/dist/data/wmn-data.json`,
+        "/app/artifacts/api-server/dist/data/wmn-data.json",
+      ];
+      for (const c of cands) if (existsSync(c)) return c;
+      return null;
+    })();
+
+    res.json({
+      runtime: "docker",
+      cwd: process.cwd(),
+      node: process.version,
+      python: pythonInfo,
+      pythonVersion,
+      maigret: maigretInfo,
+      wmn: { available: !!wmnPath, path: wmnPath },
+    });
+  } catch (err) {
+    logger.error(err, "admin/osint-status error");
+    res.status(500).json({ error: "خطأ في الخادم" });
+  }
+});
 
 router.get("/admin/stats", requireAdminToken, async (req, res) => {
   try {
