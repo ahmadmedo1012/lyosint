@@ -41,8 +41,9 @@ export default function SearchResultPage() {
     query: {
       enabled: !!id,
       queryKey: getGetSearchStatusQueryKey(id!),
-      refetchInterval: (data) => {
-        if (data?.status === "completed" || data?.status === "failed") return false;
+      refetchInterval: (query) => {
+        const d = query.state.data;
+        if (d?.status === "completed" || d?.status === "failed") return false;
         return 1500;
       },
     },
@@ -53,7 +54,10 @@ export default function SearchResultPage() {
   const isRunning = statusData?.status === "running" || statusData?.status === "pending";
 
   const { data: resultData, isLoading: resultLoading } = useGetSearchResult(id!, {
-    query: { enabled: !!id && isCompleted },
+    query: {
+      enabled: !!id && isCompleted,
+      queryKey: getGetSearchStatusQueryKey(id!) as unknown as readonly unknown[],
+    },
   });
 
   return (

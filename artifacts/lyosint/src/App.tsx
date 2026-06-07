@@ -8,6 +8,8 @@ import Dashboard from "@/pages/dashboard";
 import SearchResultPage from "@/pages/search-result";
 import PlatformsPage from "@/pages/platforms";
 import HistoryPage from "@/pages/history";
+import AccountPage from "@/pages/account";
+import AdminPage from "@/pages/admin";
 import { ThemeProvider } from "@/contexts/theme";
 import { AuthProvider, useAuth } from "@/contexts/auth";
 import { LoginPage } from "@/components/telegram-login";
@@ -32,7 +34,7 @@ function AuthGate() {
               <span className="w-3 h-3 rounded-full bg-primary animate-pulse" />
             </span>
           </div>
-          <span className="text-xs font-mono text-muted-foreground uppercase tracking-widest">جاري التحقق...</span>
+          <span className="text-sm font-medium text-muted-foreground">جاري التحقق من الهوية…</span>
         </div>
       </div>
     );
@@ -49,6 +51,8 @@ function AuthGate() {
         <Route path="/search/:id" component={SearchResultPage} />
         <Route path="/platforms" component={PlatformsPage} />
         <Route path="/history" component={HistoryPage} />
+        <Route path="/account" component={AccountPage} />
+        <Route path="/admin" component={AdminPage} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

@@ -27,14 +27,12 @@ const TYPE_LABELS: Record<string, string> = {
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
-  const { user, token, incrementSearch, refreshUser } = useAuth();
+  const { user, incrementSearch, refreshUser } = useAuth();
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [username, setUsername] = useState("");
   const [paywallOpen, setPaywallOpen] = useState(false);
-
-  const authHeader = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
 
   const searchByName = useSearchByName();
   const searchByPhone = useSearchByPhone();
@@ -52,12 +50,13 @@ export default function Dashboard() {
   };
 
   const handleError = (err: unknown) => {
-    if (err instanceof Error && err.message.includes("402")) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("402") || msg.includes("QUOTA_EXCEEDED")) {
       setPaywallOpen(true);
     }
   };
 
-  const guardedSearch = (fn: () => void) => {
+  const guard = (fn: () => void) => {
     if (!canSearch) { setPaywallOpen(true); return; }
     fn();
   };
@@ -65,207 +64,215 @@ export default function Dashboard() {
   const handleNameSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    guardedSearch(() => searchByName.mutate({ data: { name }, ...authHeader }, { onSuccess: handleSuccess, onError: handleError }));
+    guard(() => searchByName.mutate({ data: { name } }, { onSuccess: handleSuccess, onError: handleError }));
   };
 
   const handlePhoneSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone.trim()) return;
-    guardedSearch(() => searchByPhone.mutate({ data: { phone }, ...authHeader }, { onSuccess: handleSuccess, onError: handleError }));
+    guard(() => searchByPhone.mutate({ data: { phone } }, { onSuccess: handleSuccess, onError: handleError }));
   };
 
   const handleUsernameSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim()) return;
-    guardedSearch(() => searchByUsername.mutate({ data: { username }, ...authHeader }, { onSuccess: handleSuccess, onError: handleError }));
+    guard(() => searchByUsername.mutate({ data: { username } }, { onSuccess: handleSuccess, onError: handleError }));
   };
 
   const handleDeepSearch = () => {
     if (!name.trim() && !phone.trim() && !username.trim()) return;
-    guardedSearch(() => deepSearch.mutate(
-      { data: { name: name || undefined, phone: phone || undefined, username: username || undefined }, ...authHeader },
+    guard(() => deepSearch.mutate(
+      { data: { name: name || undefined, phone: phone || undefined, username: username || undefined } },
       { onSuccess: handleSuccess, onError: handleError }
     ));
   };
 
   const { data: stats, isLoading: statsLoading } = useGetStats();
-  const { data: recent, isLoading: recentLoading } = useListRecentSearches({ limit: 5 }, { headers: { Authorization: `Bearer ${token ?? ""}` } });
-
+  const { data: recent, isLoading: recentLoading } = useListRecentSearches({ limit: 5 });
   const isAnyLoading = searchByName.isPending || searchByPhone.isPending || searchByUsername.isPending || deepSearch.isPending;
 
   return (
-    <div className="space-y-6 page-transition">
+    <div className="space-y-6 page-transition" dir="rtl">
+      {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-primary uppercase flex items-center gap-3 text-glow">
-            <Activity className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-primary flex items-center gap-3 text-glow">
+            <Activity className="w-7 h-7 shrink-0" />
             لوحة الاستخبارات
           </h1>
-          <p className="text-muted-foreground mt-1.5 text-sm cursor-blink">
-            اختر نوع البحث. جميع الاستعلامات مسجّلة ومراقبة.
+          <p className="text-muted-foreground mt-1.5 text-sm">
+            اختر نوع البحث — جميع الاستعلامات مسجّلة
           </p>
         </div>
 
-        {!user?.isSubscribed && (
-          <div className="flex items-center gap-2 shrink-0">
-            {searchesRemaining === 0 ? (
-              <button
-                onClick={() => setPaywallOpen(true)}
-                className="flex items-center gap-2 bg-primary/10 text-primary border border-primary/30 px-3 py-2 rounded-lg text-xs font-mono uppercase hover:bg-primary/20 transition-colors"
-              >
-                <Crown className="w-3.5 h-3.5" />
-                اشترك — 30 د.ل / شهر
-              </button>
-            ) : (
-              <div className="bg-secondary/40 px-3 py-2 rounded-lg border border-border text-xs font-mono text-muted-foreground flex items-center gap-2">
-                <span className="text-primary font-bold">{searchesRemaining}</span>
-                <span>بحث مجاني متبقي</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {user?.isSubscribed && (
-          <Badge className="bg-primary/10 text-primary border-primary/30 font-mono gap-1.5 shrink-0">
-            <Crown className="w-3 h-3" /> مشترك نشط
-          </Badge>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {user?.isSubscribed ? (
+            <Badge className="bg-primary/10 text-primary border-primary/25 gap-1.5 font-medium">
+              <Crown className="w-3.5 h-3.5" /> مشترك نشط
+            </Badge>
+          ) : (
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium ${
+              searchesRemaining === 0
+                ? "bg-destructive/10 text-destructive border-destructive/25"
+                : "bg-secondary/50 text-muted-foreground border-border/50"
+            }`}>
+              {searchesRemaining === 0 ? (
+                <>
+                  <Lock className="w-3.5 h-3.5" />
+                  <button onClick={() => setPaywallOpen(true)} className="hover:underline">
+                    اشترك للاستمرار — 30 د.ل
+                  </button>
+                </>
+              ) : (
+                <span>{searchesRemaining} بحث مجاني متبقي</span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+        {/* Search Card */}
         <div className="lg:col-span-3 space-y-5">
           <Card className="border-primary/20 bg-card/60 backdrop-blur border-glow">
             <CardHeader className="border-b border-border/50 pb-4">
-              <CardTitle className="text-base uppercase tracking-widest text-foreground flex items-center gap-2">
-                <ShieldAlert className="w-5 h-5 text-primary" />
-                بدء الاستعلام
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-primary" />
+                محرك البحث الاستخباراتي
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-5">
-              <Tabs defaultValue="name" className="w-full" dir="rtl">
-                <TabsList className="grid w-full grid-cols-3 bg-secondary/40 mb-5 h-10 sm:h-11 rounded-lg p-1 gap-1">
-                  <TabsTrigger value="name" className="text-xs sm:text-sm font-medium gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all rounded-md">
-                    <User className="w-3.5 h-3.5 shrink-0" /><span>الاسم</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="phone" className="text-xs sm:text-sm font-medium gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all rounded-md">
-                    <Phone className="w-3.5 h-3.5 shrink-0" /><span>الهاتف</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="username" className="text-xs sm:text-sm font-medium gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all rounded-md">
-                    <AtSign className="w-3.5 h-3.5 shrink-0" />
-                    <span className="hidden sm:inline">اسم المستخدم</span>
-                    <span className="sm:hidden">مستخدم</span>
-                  </TabsTrigger>
+              <Tabs defaultValue="name" dir="rtl">
+                <TabsList className="grid w-full grid-cols-3 bg-secondary/40 mb-5 h-10 rounded-xl p-1 gap-1">
+                  {[
+                    { value: "name", icon: User, label: "الاسم" },
+                    { value: "phone", icon: Phone, label: "الهاتف" },
+                    { value: "username", icon: AtSign, label: "المعرّف" },
+                  ].map(({ value, icon: Icon, label }) => (
+                    <TabsTrigger key={value} value={value}
+                      className="text-sm font-medium gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all rounded-lg">
+                      <Icon className="w-3.5 h-3.5 shrink-0" />{label}
+                    </TabsTrigger>
+                  ))}
                 </TabsList>
 
-                <TabsContent value="name" className="mt-0">
+                <TabsContent value="name">
                   <form onSubmit={handleNameSearch} className="flex flex-col sm:flex-row gap-3">
-                    <Input placeholder="أدخل الاسم الكامل أو جزء منه" value={name} onChange={(e) => setName(e.target.value)} className="h-11 sm:h-12 bg-background border-primary/30 focus-visible:ring-primary text-sm sm:text-base" dir="auto" />
-                    <Button type="submit" disabled={isAnyLoading || !name.trim()} className="h-11 sm:h-12 px-6 sm:px-8 font-mono uppercase font-bold tracking-wider shrink-0 gap-2">
+                    <Input placeholder="أدخل الاسم الكامل أو جزء منه…" value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="h-11 bg-background border-border/60 focus-visible:ring-primary text-sm" dir="auto" />
+                    <Button type="submit" disabled={isAnyLoading || !name.trim()} className="h-11 px-7 font-bold shrink-0 gap-2">
                       {!canSearch && <Lock className="w-3.5 h-3.5" />}
-                      {searchByName.isPending ? "..." : "ابحث"}
+                      {searchByName.isPending ? "جاري البحث…" : "ابحث"}
                     </Button>
                   </form>
                 </TabsContent>
-
-                <TabsContent value="phone" className="mt-0">
+                <TabsContent value="phone">
                   <form onSubmit={handlePhoneSearch} className="flex flex-col sm:flex-row gap-3">
-                    <Input placeholder="+21891XXXXXXX  أو  092XXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} className="h-11 sm:h-12 bg-background border-primary/30 focus-visible:ring-primary text-sm sm:text-base font-mono" dir="ltr" />
-                    <Button type="submit" disabled={isAnyLoading || !phone.trim()} className="h-11 sm:h-12 px-6 sm:px-8 font-mono uppercase font-bold tracking-wider shrink-0 gap-2">
+                    <Input placeholder="+21891XXXXXXX أو 092XXXXXXX" value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="h-11 bg-background border-border/60 focus-visible:ring-primary text-sm font-mono" dir="ltr" />
+                    <Button type="submit" disabled={isAnyLoading || !phone.trim()} className="h-11 px-7 font-bold shrink-0 gap-2">
                       {!canSearch && <Lock className="w-3.5 h-3.5" />}
-                      {searchByPhone.isPending ? "..." : "ابحث"}
+                      {searchByPhone.isPending ? "جاري البحث…" : "ابحث"}
                     </Button>
                   </form>
                 </TabsContent>
-
-                <TabsContent value="username" className="mt-0">
+                <TabsContent value="username">
                   <form onSubmit={handleUsernameSearch} className="flex flex-col sm:flex-row gap-3">
-                    <Input placeholder="@username" value={username} onChange={(e) => setUsername(e.target.value)} className="h-11 sm:h-12 bg-background border-primary/30 focus-visible:ring-primary text-sm sm:text-base font-mono" dir="ltr" />
-                    <Button type="submit" disabled={isAnyLoading || !username.trim()} className="h-11 sm:h-12 px-6 sm:px-8 font-mono uppercase font-bold tracking-wider shrink-0 gap-2">
+                    <Input placeholder="@username" value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className="h-11 bg-background border-border/60 focus-visible:ring-primary text-sm font-mono" dir="ltr" />
+                    <Button type="submit" disabled={isAnyLoading || !username.trim()} className="h-11 px-7 font-bold shrink-0 gap-2">
                       {!canSearch && <Lock className="w-3.5 h-3.5" />}
-                      {searchByUsername.isPending ? "..." : "ابحث"}
+                      {searchByUsername.isPending ? "جاري البحث…" : "ابحث"}
                     </Button>
                   </form>
                 </TabsContent>
               </Tabs>
 
+              {/* Deep Search */}
               <div className="mt-5 pt-5 border-t border-border/40 flex flex-col items-center gap-3">
-                <div className="text-xs text-muted-foreground uppercase tracking-widest font-mono">
-                  محرك الربط المتقاطع
-                </div>
+                <p className="text-xs text-muted-foreground font-medium">أو استخدم محرك الربط المتقاطع</p>
                 <Button
                   onClick={handleDeepSearch}
                   disabled={isAnyLoading || (!name.trim() && !phone.trim() && !username.trim())}
-                  className="w-full max-w-sm h-11 sm:h-12 font-bold tracking-wider bg-destructive/15 text-destructive hover:bg-destructive hover:text-destructive-foreground border border-destructive/40 gap-2 text-sm"
+                  className="w-full max-w-sm h-11 font-bold bg-destructive/12 text-destructive hover:bg-destructive hover:text-destructive-foreground border border-destructive/30 gap-2"
                 >
                   {!canSearch ? <Lock className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
                   بحث شامل في جميع الاتجاهات
                 </Button>
+                <p className="text-[11px] text-muted-foreground/60 text-center">
+                  يجمع الاسم + الهاتف + المعرّف في بحث واحد متزامن
+                </p>
               </div>
             </CardContent>
           </Card>
 
+          {/* Recent searches */}
           <div className="space-y-3">
-            <h2 className="text-xs text-muted-foreground uppercase tracking-widest flex items-center gap-2 font-mono">
-              <Clock className="w-4 h-4" /> العمليات الأخيرة
+            <h2 className="text-xs text-muted-foreground font-medium uppercase tracking-widest flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5" /> آخر العمليات
             </h2>
-            <div className="grid gap-2">
+            <div className="space-y-2">
               {recentLoading ? (
-                Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-16 w-full bg-secondary/40 rounded-lg" />)
-              ) : recent?.map((item, idx) => (
-                <a key={item.id} href={`/search/${item.id}`} onClick={(e) => { e.preventDefault(); setLocation(`/search/${item.id}`); }}>
-                  <div
-                    className="bg-card border border-border hover:border-primary/40 transition-all duration-200 p-3 sm:p-4 rounded-lg flex items-center justify-between cursor-pointer group stagger-item hover:bg-primary/5"
-                    style={{ animationDelay: `${idx * 50}ms` }}
-                  >
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                      <Badge variant="outline" className="uppercase font-mono text-[10px] text-primary border-primary/30 bg-primary/5 shrink-0">
-                        {TYPE_LABELS[item.type] ?? item.type}
-                      </Badge>
-                      <span className="font-medium group-hover:text-primary transition-colors truncate text-sm" dir="auto">{item.query}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs shrink-0 mr-2">
-                      {item.confidenceScore !== null && item.confidenceScore !== undefined && (
-                        <span className={`font-mono font-bold ${item.confidenceScore > 0.75 ? "text-green-500" : item.confidenceScore > 0.4 ? "text-amber-500" : "text-destructive"}`}>
-                          {Math.round(item.confidenceScore * 100)}%
-                        </span>
-                      )}
-                      <span className="text-muted-foreground font-mono hidden sm:inline">
-                        {new Date(item.createdAt).toLocaleTimeString("ar-LY")}
-                      </span>
-                    </div>
-                  </div>
-                </a>
-              ))}
-              {recent?.length === 0 && (
-                <div className="text-center p-10 text-muted-foreground border border-dashed border-border rounded-lg text-sm">
+                Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)
+              ) : recent?.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground border border-dashed border-border/50 rounded-xl text-sm">
                   لا توجد عمليات بحث حديثة
                 </div>
-              )}
+              ) : recent?.map((item, idx) => (
+                <button key={item.id} onClick={() => setLocation(`/search/${item.id}`)}
+                  className="w-full text-right bg-card border border-border/50 hover:border-primary/30 transition-all px-4 py-3 rounded-xl flex items-center justify-between cursor-pointer group hover:bg-primary/4"
+                  style={{ animationDelay: `${idx * 40}ms` }}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Badge variant="outline" className="uppercase font-mono text-[10px] text-primary border-primary/25 bg-primary/6 shrink-0">
+                      {TYPE_LABELS[item.type] ?? item.type}
+                    </Badge>
+                    <span className="font-medium text-sm group-hover:text-primary transition-colors truncate" dir="auto">
+                      {item.query}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0 mr-2">
+                    {item.confidenceScore !== null && item.confidenceScore !== undefined && (
+                      <span className={`font-mono font-bold text-sm tabular-nums ${
+                        item.confidenceScore > 0.75 ? "text-green-500" : item.confidenceScore > 0.4 ? "text-amber-500" : "text-destructive"
+                      }`}>
+                        {Math.round(item.confidenceScore * 100)}%
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground font-mono hidden sm:block tabular-nums">
+                      {new Date(item.createdAt).toLocaleTimeString("ar-LY", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
         </div>
 
+        {/* Stats sidebar */}
         <div className="space-y-4">
-          <Card className="bg-secondary/20 border-border border-glow">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2 font-mono">
-                <ShieldAlert className="w-4 h-4" /> حالة النظام
+          <Card className="bg-secondary/15 border-border/40">
+            <CardHeader className="pb-2 pt-4">
+              <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                <Activity className="w-3.5 h-3.5" /> إحصائيات النظام
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pb-4">
               {statsLoading ? (
-                <Skeleton className="h-32 w-full" />
+                <div className="space-y-3">{Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-16 rounded-lg" />)}</div>
               ) : stats ? (
                 <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
                   {[
                     { label: "إجمالي الاستعلامات", value: stats.totalSearches.toLocaleString("ar"), color: "text-primary" },
                     { label: "نسبة النتائج", value: `${Math.round((stats.totalFindings / Math.max(1, stats.totalSearches)) * 100)}%`, color: "text-foreground" },
-                    { label: "المنصات المغطّاة", value: String(stats.platformsCovered), color: "text-primary" },
+                    { label: "المنصات", value: String(stats.platformsCovered), color: "text-primary" },
                     { label: "اليوم", value: String(stats.recentSearchCount), color: "text-green-500" },
                   ].map(({ label, value, color }) => (
-                    <div key={label} className="p-3 rounded bg-background/40 border border-border/30 space-y-1">
-                      <div className="text-[10px] text-muted-foreground uppercase font-mono">{label}</div>
-                      <div className={`text-2xl font-bold font-mono text-glow ${color}`}>{value}</div>
+                    <div key={label} className="p-3 rounded-lg bg-background/40 border border-border/30">
+                      <div className="text-[10px] text-muted-foreground mb-1 uppercase font-medium">{label}</div>
+                      <div className={`text-2xl font-bold font-mono tabular-nums text-glow ${color}`}>{value}</div>
                     </div>
                   ))}
                 </div>

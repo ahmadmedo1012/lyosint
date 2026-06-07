@@ -99,10 +99,10 @@
   --chart-3: 40 90% 50%;
   --chart-4: 0 80% 50%;
   --chart-5: 280 80% 50%;
-  --app-font-sans: 'Cairo', 'Inter', sans-serif;
+  --app-font-sans: 'Noto Kufi Arabic', 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: 'JetBrains Mono', monospace;
-  --radius: 0.35rem;
+  --radius: 0.5rem;
   --glow-color: 0, 210, 230;
   --grid-color: rgba(0, 210, 230, 0.04);
   --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.25);
@@ -160,10 +160,10 @@
   --chart-3: 50 90% 55%;
   --chart-4: 0 80% 55%;
   --chart-5: 280 80% 55%;
-  --app-font-sans: 'Cairo', 'Inter', sans-serif;
+  --app-font-sans: 'Noto Kufi Arabic', 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: 'JetBrains Mono', monospace;
-  --radius: 0.35rem;
+  --radius: 0.5rem;
   --glow-color: 230, 160, 30;
   --grid-color: rgba(230, 160, 30, 0.04);
   --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.25);
@@ -221,10 +221,10 @@
   --chart-3: 90 80% 45%;
   --chart-4: 0 80% 55%;
   --chart-5: 280 80% 55%;
-  --app-font-sans: 'Cairo', 'Inter', sans-serif;
+  --app-font-sans: 'Noto Kufi Arabic', 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: 'JetBrains Mono', monospace;
-  --radius: 0.35rem;
+  --radius: 0.5rem;
   --glow-color: 50, 200, 80;
   --grid-color: rgba(50, 200, 80, 0.04);
   --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0.25);
@@ -254,6 +254,10 @@
     direction: rtl;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    /* Improve Arabic text rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
   }
 
   body {
@@ -264,6 +268,26 @@
     background-size: 44px 44px;
     background-position: center center;
     overflow-x: hidden;
+    /* Arabic line-height and letter spacing */
+    line-height: 1.7;
+    letter-spacing: 0.01em;
+  }
+
+  /* Arabic text size adjustments */
+  h1, h2, h3, h4, h5, h6 {
+    line-height: 1.4;
+    letter-spacing: 0;
+    font-weight: 700;
+  }
+
+  /* Better Arabic label spacing */
+  label, .text-sm, .text-xs {
+    letter-spacing: 0.01em;
+  }
+
+  /* Uppercase font-mono labels in Arabic context */
+  .uppercase:not([dir="ltr"]):not(.font-mono) {
+    letter-spacing: 0.08em;
   }
 
   body::after {

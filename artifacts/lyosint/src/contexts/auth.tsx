@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { setAuthTokenGetter } from "@workspace/api-client-react";
 
 export interface AuthUser {
   id: string;
@@ -32,7 +33,10 @@ const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 async function apiFetch(path: string, options: RequestInit = {}, token?: string | null) {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${BASE}${path}`, { ...options, headers: { ...headers, ...(options.headers as Record<string, string> ?? {}) } });
+  const res = await fetch(`${BASE}${path}`, {
+    ...options,
+    headers: { ...headers, ...(options.headers as Record<string, string> ?? {}) },
+  });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
@@ -41,6 +45,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
   const [loading, setLoading] = useState(true);
+
+  // Register the token getter globally so all Orval-generated hooks send auth headers automatically
+  useEffect(() => {
+    setAuthTokenGetter(() => localStorage.getItem(TOKEN_KEY));
+    return () => setAuthTokenGetter(null);
+  }, []);
 
   const refreshUser = useCallback(async () => {
     const t = localStorage.getItem(TOKEN_KEY);
@@ -82,7 +92,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!u) return u;
       const newCount = u.searchCount + 1;
       const remaining = u.isSubscribed ? null : Math.max(0, 3 - newCount);
-      return { ...u, searchCount: newCount, searchesRemaining: remaining, canSearch: u.isSubscribed || newCount < 3 };
+      return {
+        ...u,
+        searchCount: newCount,
+        searchesRemaining: remaining,
+        canSearch: u.isSubscribed || newCount < 3,
+      };
     });
   }, []);
 
