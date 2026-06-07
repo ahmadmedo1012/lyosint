@@ -8,7 +8,8 @@ Input (stdin):
     "username": "github",
     "timeout": 10,
     "max_connections": 20,
-    "max_sites": 0  // 0 = no limit
+    "max_sites": 500,           // 0 = no limit
+    "priority_sites": ["Twitter","Facebook","Instagram", ...]  // always included
   }
 
 Output (stdout):
@@ -20,7 +21,7 @@ Output (stdout):
         "url": "https://youtube.com/@github",
         "category": "social",
         "httpStatus": 200,
-        "detectionMethod": "status_code",
+        "detectionMethod": "maigret",
         "fullname": "GitHub",
         "bio": "...",
         "image": "https://...",
@@ -28,7 +29,9 @@ Output (stdout):
       }
     ],
     "totalFound": N,
-    "elapsedSeconds": 12.3
+    "elapsedSeconds": 12.3,
+    "sitesChecked": 487,
+    "priorityHits": 4
   }
 
 Errors are written to stderr in a single JSON line:
@@ -48,7 +51,26 @@ os.dup2(_DEVNULL, 2)  # stderr
 os.close(_DEVNULL)
 
 
-async def run_maigret(username: str, timeout: int = 10, max_connections: int = 20, max_sites: int = 0):
+# Major social media sites — Maigret ranks these LOW (3120+) because they need
+# login to detect. We force-include them so the search always tries them.
+DEFAULT_PRIORITY_SITES = [
+    "Twitter", "X", "Facebook", "Instagram", "LinkedIn", "YouTube", "TikTok",
+    "Reddit", "Pinterest", "Snapchat", "Tumblr", "Twitch", "Discord", "Telegram",
+    "WhatsApp", "Mastodon", "Threads", "Bluesky", "VK", "Weibo", "QQ", "WeChat",
+    "Gravatar", "GitHub", "GitLab", "Bitbucket", "StackOverflow", "Medium",
+    "Substack", "Blogger", "WordPress", "Telegram", "Flickr", "Vimeo",
+    "SoundCloud", "Bandcamp", "DeviantArt", "Behance", "Dribbble", "Figma",
+    "About.me", "Wattpad", "Quora",
+]
+
+
+async def run_maigret(
+    username: str,
+    timeout: int = 10,
+    max_connections: int = 20,
+    max_sites: int = 500,
+    priority_sites: list = None,
+):
     import maigret
     from maigret import MaigretDatabase
     from maigret.checking import maigret as maigret_search
@@ -59,26 +81,48 @@ async def run_maigret(username: str, timeout: int = 10, max_connections: int = 2
     db = MaigretDatabase()
     db.load_from_path(data_path)
 
-    # Limit sites if requested (Maigret sorts by rank, so first N = highest priority)
-    sites_dict = db.sites_dict
+    sites_dict = dict(db.sites_dict)  # copy to avoid mutating db
+
+    if priority_sites is None:
+        priority_sites = DEFAULT_PRIORITY_SITES
+
+    # Remove priority sites from the bulk pool so they aren't double-counted
+    priority_kept = {}
+    for s in priority_sites:
+        if s in sites_dict:
+            priority_kept[s] = sites_dict.pop(s)
+
+    # Cap the bulk pool at max_sites
     if max_sites > 0 and len(sites_dict) > max_sites:
-        # Use ranked_sites_dict if available, else truncate
         try:
             ranked = db.ranked_sites_dict(username) if hasattr(db, "ranked_sites_dict") else None
-            if ranked and len(ranked) > max_sites:
-                sites_dict = dict(list(ranked.items())[:max_sites])
+            if ranked:
+                # Filter ranked to only include sites in our pool, preserve order
+                ranked_pool = [(k, v) for k, v in ranked.items() if k in sites_dict]
+                if len(ranked_pool) > max_sites:
+                    sites_dict = dict(ranked_pool[:max_sites])
+                else:
+                    sites_dict = dict(ranked_pool)
+            else:
+                # Truncate alphabetically
+                sites_dict = dict(list(sites_dict.items())[:max_sites])
         except Exception:
             sites_dict = dict(list(sites_dict.items())[:max_sites])
+
+    # Re-add priority sites at the END (Maigret will still check them, but they
+    # get full budget since they are explicitly requested)
+    sites_dict.update(priority_kept)
+
+    sites_checked = len(sites_dict)
+    priority_site_names = set(priority_kept.keys())
 
     # Quiet logger
     logger = logging.getLogger("maigret")
     logger.setLevel(logging.CRITICAL)
-    # Replace handlers to suppress all output
     for h in list(logger.handlers):
         logger.removeHandler(h)
     logger.addHandler(logging.NullHandler())
 
-    # Also quiet the root maigret logger and any child
     for name in list(logging.root.manager.loggerDict.keys()):
         if name.startswith("maigret"):
             l = logging.getLogger(name)
@@ -93,20 +137,16 @@ async def run_maigret(username: str, timeout: int = 10, max_connections: int = 2
         username,
         sites_dict,
         logger,
-        no_progressbar=True,  # disables alive_bar progress
+        no_progressbar=True,
         timeout=timeout,
         max_connections=max_connections,
-        is_parsing_enabled=True,  # extract profile data (image, fullname, bio)
+        is_parsing_enabled=True,
     )
     elapsed = time.time() - start
 
     # Build clean results
-    # In v0.6.1, the result is dict[site_name: str, result: dict] where:
-    #   result["status"] = MaigretCheckResult (Claimed/Available/Illegal/Unknown)
-    #   result["checker"] = checker object (has .url = resolved URL)
-    #   result["url_main"] = site homepage
-    #   result["username"] = searched username
     found = []
+    priority_hits = 0
     for site_name, r in raw.items():
         status = r.get("status")
         status_name = status.name if hasattr(status, "name") else str(status)
@@ -119,12 +159,14 @@ async def run_maigret(username: str, timeout: int = 10, max_connections: int = 2
         if checker and hasattr(checker, "response_status"):
             http_status = checker.response_status
 
-        # Look up the site object to get category
-        # Maigret v0.6.1: site.tags = list[str] (e.g. ['social']); no `cat` attr
         site = db.sites_dict.get(site_name)
         category = "unknown"
         if site and hasattr(site, "tags") and site.tags:
             category = ",".join(site.tags)
+
+        is_priority = site_name in priority_site_names
+        if is_priority:
+            priority_hits += 1
 
         site_dict = {
             "site": site_name,
@@ -136,8 +178,8 @@ async def run_maigret(username: str, timeout: int = 10, max_connections: int = 2
             "bio": None,
             "image": None,
             "extra": {},
+            "isPriority": is_priority,
         }
-        # Try to extract any additional fields the checker might have
         if checker:
             for attr in ("ids_data", "parsed_data", "metadata", "profile"):
                 if hasattr(checker, attr):
@@ -161,11 +203,16 @@ async def run_maigret(username: str, timeout: int = 10, max_connections: int = 2
                                     site_dict["extra"][k] = str(v)[:500]
         found.append(site_dict)
 
+    # Sort: priority hits first, then by site name
+    found.sort(key=lambda x: (0 if x.get("isPriority") else 1, x["site"].lower()))
+
     return {
         "username": username,
         "found": found,
         "totalFound": len(found),
         "elapsedSeconds": round(elapsed, 2),
+        "sitesChecked": sites_checked,
+        "priorityHits": priority_hits,
     }
 
 
@@ -187,7 +234,8 @@ def main():
             username=username,
             timeout=int(cfg.get("timeout", 10)),
             max_connections=int(cfg.get("max_connections", 20)),
-            max_sites=int(cfg.get("max_sites", 0)),
+            max_sites=int(cfg.get("max_sites", 500)),
+            priority_sites=cfg.get("priority_sites"),
         ))
         sys.stdout.write(json.dumps(result))
         return 0

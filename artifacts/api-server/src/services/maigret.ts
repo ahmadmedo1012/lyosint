@@ -23,6 +23,7 @@ export interface MaigretProfile {
   bio: string | null;
   image: string | null;
   extra: Record<string, string>;
+  isPriority?: boolean;
 }
 
 export interface MaigretResult {
@@ -30,7 +31,22 @@ export interface MaigretResult {
   found: MaigretProfile[];
   totalFound: number;
   elapsedSeconds: number;
+  sitesChecked?: number;
+  priorityHits?: number;
 }
+
+// Major social media sites — Maigret ranks these LOW (3120+) because they
+// require login to detect. We force-include them so the search always tries
+// the platforms users care about most.
+export const PRIORITY_SOCIAL_SITES = [
+  "Twitter", "X", "Facebook", "Instagram", "LinkedIn", "YouTube", "TikTok",
+  "Reddit", "Pinterest", "Snapchat", "Tumblr", "Twitch", "Discord", "Telegram",
+  "WhatsApp", "Mastodon", "Threads", "Bluesky", "VK", "Weibo", "QQ", "WeChat",
+  "Gravatar", "GitHub", "GitLab", "Bitbucket", "StackOverflow", "Medium",
+  "Substack", "Blogger", "WordPress", "Flickr", "Vimeo",
+  "SoundCloud", "Bandcamp", "DeviantArt", "Behance", "Dribbble", "Figma",
+  "About.me", "Wattpad", "Quora",
+];
 
 export interface MaigretCheckOptions {
   timeoutMs?: number;       // per-site HTTP timeout (passed to Python)
@@ -101,9 +117,10 @@ export async function runMaigret(
 
   const config = {
     username,
-    timeout: Math.max(2, Math.floor((options.timeoutMs ?? 10000) / 1000)),
+    timeout: Math.max(2, Math.floor((options.timeoutMs ?? 8000) / 1000)),
     max_connections: Math.max(5, Math.min(options.maxConnections ?? 25, 50)),
-    max_sites: options.maxSites ?? 200,
+    max_sites: options.maxSites ?? 500,
+    priority_sites: PRIORITY_SOCIAL_SITES,
   };
 
   return new Promise<MaigretResult>((resolvePromise, rejectPromise) => {
@@ -122,11 +139,11 @@ export async function runMaigret(
       fn();
     };
 
-    // Hard timeout (max wait = maxSites / maxConnections * timeout + buffer)
-    const hardTimeoutMs = options.timeoutMs ?? 10000;
-    const maxWaitMs = Math.max(15000, Math.min(
-      (config.max_sites / config.max_connections) * config.timeout * 1000 + 5000,
-      90000,  // absolute cap of 90s
+    // Hard timeout (max wait = maxSites / maxConnections * timeout + buffer + priority_sites overhead)
+    const hardTimeoutMs = options.timeoutMs ?? 8000;
+    const maxWaitMs = Math.max(20000, Math.min(
+      ((config.max_sites + 50) / config.max_connections) * config.timeout * 1000 + 8000,
+      120000,  // absolute cap of 120s
     ));
     const hardTimer = setTimeout(() => {
       finish(() => rejectPromise(new Error(`maigret hard timeout after ${maxWaitMs}ms`)));

@@ -12,13 +12,13 @@ export async function runUsernameSearch(id: string, username: string): Promise<v
     await db.update(searchesTable).set({ status: "running", progress: 5 }).where(eq(searchesTable.id, id));
 
     // Run httpChecker, Twitch, WhatsMyName, and Maigret in parallel
-    // Maigret is the slow path (Python subprocess + 200 sites @ 8s timeout ≈ 30-60s)
+    // Maigret is the slow path (Python subprocess + 500 sites + 45 priority sites @ 8s timeout ≈ 30-90s)
     const [platformResults, twitchData, wmnResultsRaw, maigretResult] = await Promise.allSettled([
       checkUsername(username),
       lookupTwitchUser(username),
       checkWhatsMyName(username, { concurrency: 20, perSiteTimeoutMs: 5000, globalTimeoutMs: 30000 }),
       isMaigretAvailable()
-        ? runMaigret(username, { timeoutMs: 8000, maxConnections: 25, maxSites: 200 })
+        ? runMaigret(username, { timeoutMs: 8000, maxConnections: 30, maxSites: 500 })
         : Promise.resolve({ username, found: [], totalFound: 0, elapsedSeconds: 0 }),
     ]);
 

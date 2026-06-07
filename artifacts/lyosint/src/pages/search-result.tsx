@@ -406,19 +406,25 @@ export default function SearchResultPage() {
                   <div className="mb-4">
                     <div className="text-[10px] text-muted-foreground uppercase font-mono mb-2.5 flex items-center gap-1.5">
                       <Database className="w-3 h-3 text-primary" />
-                      البروفايلات الغنية من Maigret ({(resultData.usernameResult as any).maigretProfiles.length})
+                      البروفايلات من Maigret ({(resultData.usernameResult as any).maigretProfiles.length})
+                      <span className="text-[9px] text-muted-foreground/50">
+                        ({((resultData.usernameResult as any).maigretProfiles as any[]).filter(p => p.isPriority).length} تواصل اجتماعي)
+                      </span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {((resultData.usernameResult as any).maigretProfiles as any[])
-                        .filter((p) => p.image || p.fullname || p.bio)
-                        .slice(0, 8)
+                        .slice(0, 12)
                         .map((p, i) => (
                           <a
                             key={`${p.site}-${i}`}
                             href={p.url || "#"}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border/30 bg-secondary/20 hover:border-primary/30 hover:bg-secondary/40 transition-all"
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all ${
+                              p.isPriority
+                                ? "border-amber-500/30 bg-amber-500/5 hover:border-amber-500/50 hover:bg-amber-500/10"
+                                : "border-border/30 bg-secondary/20 hover:border-primary/30 hover:bg-secondary/40"
+                            }`}
                           >
                             {p.image ? (
                               <img
@@ -429,14 +435,23 @@ export default function SearchResultPage() {
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                               />
                             ) : (
-                              <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                                <User className="w-4 h-4 text-primary/60" />
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                                p.isPriority
+                                  ? "bg-amber-500/10 border border-amber-500/30"
+                                  : "bg-primary/10 border border-primary/20"
+                              }`}>
+                                <User className={`w-4 h-4 ${p.isPriority ? "text-amber-400" : "text-primary/60"}`} />
                               </div>
                             )}
                             <div className="min-w-0 flex-1 space-y-0.5">
                               <div className="flex items-center gap-1.5">
                                 <span className="text-xs font-bold text-foreground truncate">{p.site}</span>
-                                {p.category && (
+                                {p.isPriority && (
+                                  <Badge className="text-[9px] px-1 py-0 font-mono bg-amber-500/20 text-amber-300 border-amber-500/30">
+                                    ⭐ تواصل
+                                  </Badge>
+                                )}
+                                {p.category && !p.isPriority && (
                                   <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono">
                                     {p.category}
                                   </Badge>
