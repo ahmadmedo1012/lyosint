@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { createHmac, randomUUID } from "crypto";
-import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, usersTable, pendingLoginsTable } from "@workspace/db";
+import { and, eq, lt } from "drizzle-orm";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -10,18 +10,12 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
 const FREE_SEARCH_LIMIT = 3;
 const IS_DEV = process.env.NODE_ENV !== "production";
 
-// In-memory store for bot-generated one-time login tokens
-// { token -> { telegramId, firstName, lastName, username, photoUrl, expiresAt } }
-const pendingLogins = new Map<string, {
-  telegramId: string; firstName: string; lastName?: string;
-  username?: string; photoUrl?: string; expiresAt: number;
-}>();
-
-// Cleanup expired tokens every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [k, v] of pendingLogins) {
-    if (v.expiresAt < now) pendingLogins.delete(k);
+// Cleanup expired login tokens from DB every 5 minutes
+setInterval(async () => {
+  try {
+    await db.delete(pendingLoginsTable).where(lt(pendingLoginsTable.expiresAt, new Date()));
+  } catch (err) {
+    logger.error(err, "pending logins cleanup error");
   }
 }, 5 * 60 * 1000);
 
@@ -68,12 +62,17 @@ router.post("/auth/bot-webhook", async (req, res) => {
     const loginToken = msg.text.replace("/start login_", "").trim();
     const from = msg.from;
     if (!from || !loginToken) { res.json({ ok: true }); return; }
-    pendingLogins.set(loginToken, {
+    await db.insert(pendingLoginsTable).values({
+      token: loginToken,
       telegramId: String(from.id),
       firstName: from.first_name ?? "User",
-      lastName: from.last_name,
-      username: from.username,
-      expiresAt: Date.now() + 5 * 60 * 1000,
+      lastName: from.last_name ?? null,
+      username: from.username ?? null,
+      photoUrl: null,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+    }).onConflictDoUpdate({
+      target: pendingLoginsTable.token,
+      set: { telegramId: String(from.id), firstName: from.first_name ?? "User", lastName: from.last_name ?? null, username: from.username ?? null, expiresAt: new Date(Date.now() + 5 * 60 * 1000) },
     });
     // Tell the user to go back to the website
     await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
@@ -96,12 +95,18 @@ router.post("/auth/bot-webhook", async (req, res) => {
 router.post("/auth/bot-poll", async (req, res) => {
   const { loginToken } = req.body;
   if (!loginToken) { res.status(400).json({ error: "missing token" }); return; }
-  const pending = pendingLogins.get(loginToken);
-  if (!pending || pending.expiresAt < Date.now()) {
+  const [pending] = await db.select().from(pendingLoginsTable).where(eq(pendingLoginsTable.token, loginToken));
+  if (!pending || pending.expiresAt < new Date()) {
     res.json({ ready: false }); return;
   }
-  pendingLogins.delete(loginToken);
-  const user = await upsertUser(pending);
+  await db.delete(pendingLoginsTable).where(and(eq(pendingLoginsTable.token, loginToken), eq(pendingLoginsTable.telegramId, pending.telegramId)));
+  const user = await upsertUser({
+    telegramId: pending.telegramId,
+    firstName: pending.firstName,
+    lastName: pending.lastName ?? undefined,
+    username: pending.username ?? undefined,
+    photoUrl: pending.photoUrl ?? undefined,
+  });
   res.json({ ready: true, sessionToken: user.sessionToken, user: toPublicUser(user) });
 });
 

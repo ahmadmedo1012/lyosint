@@ -56,3 +56,6 @@ render-build.log
 .env
 .env.local
 .env.production
+.opencode/
+.specify/
+AGENTS.md
