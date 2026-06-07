@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/auth";
-import { Terminal, ShieldAlert, Send, Loader2, CheckCircle2, Copy, RefreshCw } from "lucide-react";
+import { Terminal, ShieldAlert, Send, Loader2, CheckCircle2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 declare global {
@@ -13,62 +13,33 @@ const BOT_USERNAME = "lyosintbot";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function generateLoginToken(): string {
-  return Array.from(crypto.getRandomValues(new Uint8Array(16))).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-interface TelegramLoginProps {
-  onSuccess?: () => void;
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 type LoginState = "idle" | "waiting" | "success" | "error";
 
-export function TelegramLoginButton({ onSuccess }: TelegramLoginProps) {
+export function TelegramLoginButton({ onSuccess }: { onSuccess?: () => void }) {
   const { login, refreshUser } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [widgetWorking, setWidgetWorking] = useState<boolean | null>(null);
   const [loginToken] = useState(() => generateLoginToken());
   const [loginState, setLoginState] = useState<LoginState>("idle");
-  const [copied, setCopied] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const botLoginUrl = `https://t.me/${BOT_USERNAME}?start=login_${loginToken}`;
-  const currentDomain = typeof window !== "undefined" ? window.location.hostname : "";
-  const isLocalhost = currentDomain === "localhost" || currentDomain === "127.0.0.1";
 
-  // Try Telegram widget first
   useEffect(() => {
     window.TelegramLoginCallback = async (data: Record<string, string>) => {
       try {
         await login(data);
+        setLoginState("success");
         onSuccess?.();
       } catch {
-        setWidgetWorking(false);
+        // fallback to bot method
       }
     };
-
-    if (!containerRef.current) return;
-    containerRef.current.innerHTML = "";
-
-    const script = document.createElement("script");
-    script.src = "https://telegram.org/js/telegram-widget.js?22";
-    script.setAttribute("data-telegram-login", BOT_USERNAME);
-    script.setAttribute("data-size", "large");
-    script.setAttribute("data-onauth", "TelegramLoginCallback(user)");
-    script.setAttribute("data-request-access", "write");
-    script.setAttribute("data-userpic", "false");
-    script.async = true;
-
-    // Check if widget loaded successfully after 2s
-    const checkTimer = setTimeout(() => {
-      const iframe = containerRef.current?.querySelector("iframe");
-      setWidgetWorking(!!iframe && !iframe.src.includes("error"));
-    }, 2500);
-
-    containerRef.current.appendChild(script);
-    return () => {
-      clearTimeout(checkTimer);
-      delete window.TelegramLoginCallback;
-    };
+    return () => { delete window.TelegramLoginCallback; };
   }, [login, onSuccess]);
 
   const startPolling = useCallback(() => {
@@ -93,22 +64,12 @@ export function TelegramLoginButton({ onSuccess }: TelegramLoginProps) {
       }
     }, 2000);
 
-    // Stop after 5 minutes
     setTimeout(() => {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        setLoginState("idle");
-      }
+      if (pollRef.current) { clearInterval(pollRef.current); setLoginState("idle"); }
     }, 5 * 60 * 1000);
   }, [loginToken, refreshUser, onSuccess]);
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
-
-  const handleCopyDomain = () => {
-    navigator.clipboard.writeText(currentDomain);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const handleOpenBot = () => {
     window.open(botLoginUrl, "_blank");
@@ -116,142 +77,114 @@ export function TelegramLoginButton({ onSuccess }: TelegramLoginProps) {
   };
 
   return (
-    <div className="flex flex-col items-center gap-5 w-full">
-      <div className="text-center space-y-1.5">
-        <div className="flex items-center justify-center gap-2 text-primary">
-          <ShieldAlert className="w-4 h-4" />
-          <span className="font-mono text-sm uppercase tracking-widest">تسجيل الدخول الآمن</span>
-        </div>
-        <p className="text-xs text-muted-foreground max-w-xs">
-          سجّل دخولك عبر تيليقرام — لا يتم حفظ كلمات مرور
-        </p>
-      </div>
+    <div className="flex flex-col gap-4 w-full">
+      <div ref={containerRef} className="opacity-0 h-0 overflow-hidden" />
 
-      {/* Hidden widget attempt */}
-      <div ref={containerRef} className={`${widgetWorking === false || widgetWorking === null ? "opacity-0 h-0 overflow-hidden" : "min-h-[48px]"} flex justify-center w-full transition-all`} />
-
-      {/* Bot-based login (always shown, primary method) */}
-      <div className="w-full space-y-3">
-        {loginState === "idle" && (
-          <Button
-            onClick={handleOpenBot}
-            className="w-full h-12 font-bold text-base gap-2.5 bg-primary text-primary-foreground hover:bg-primary/90"
-          >
+      {loginState === "idle" && (
+        <div className="space-y-3">
+          <Button onClick={handleOpenBot} className="w-full h-11 font-bold gap-2.5 text-[15px]">
             <Send className="w-4 h-4" />
             تسجيل الدخول عبر تيليقرام
           </Button>
-        )}
-
-        {loginState === "waiting" && (
-          <div className="space-y-3">
-            <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 text-center space-y-2 border-glow">
-              <div className="flex items-center justify-center gap-2 text-primary font-bold font-mono text-sm">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                في انتظار التأكيد من تيليقرام...
-              </div>
-              <p className="text-xs text-muted-foreground">
-                افتح الرابط في تيليقرام واضغط <span className="text-primary font-bold">Start</span> ثم ارجع هنا
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={handleOpenBot} variant="outline" size="sm" className="flex-1 gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/10">
-                <Send className="w-3.5 h-3.5" /> افتح تيليقرام مجدداً
-              </Button>
-              <Button onClick={() => { clearInterval(pollRef.current!); setLoginState("idle"); }} variant="ghost" size="sm" className="text-xs text-muted-foreground">
-                إلغاء
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {loginState === "success" && (
-          <div className="flex items-center justify-center gap-2 py-3 text-green-500 font-bold font-mono">
-            <CheckCircle2 className="w-5 h-5" />
-            تم تسجيل الدخول بنجاح!
-          </div>
-        )}
-
-        {loginState === "error" && (
-          <div className="space-y-2">
-            <div className="text-destructive text-xs text-center">حدث خطأ — حاول مرة أخرى</div>
-            <Button onClick={() => setLoginState("idle")} variant="outline" size="sm" className="w-full gap-1.5">
-              <RefreshCw className="w-3.5 h-3.5" /> إعادة المحاولة
-            </Button>
-          </div>
-        )}
-
-        {loginState === "idle" && (
-          <p className="text-center text-[10px] text-muted-foreground font-mono">
-            سيفتح تيليقرام تلقائياً · اضغط Start في البوت ثم ارجع هنا
+          <p className="text-center text-[11px] text-muted-foreground">
+            سيفتح تيليقرام تلقائياً — اضغط Start ثم عُد هنا
           </p>
-        )}
-      </div>
-
-      {/* Domain setup notice - only if widget failed AND not localhost */}
-      {widgetWorking === false && !isLocalhost && (
-        <details className="w-full">
-          <summary className="text-[10px] text-muted-foreground/50 cursor-pointer hover:text-muted-foreground font-mono text-center">
-            إعداد تسجيل دخول Widget (اختياري)
-          </summary>
-          <div className="mt-3 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs space-y-2" dir="rtl">
-            <p className="text-amber-300/80">أرسل هذه الأوامر إلى <span className="font-mono">@BotFather</span>:</p>
-            <div className="space-y-1 font-mono text-[11px]">
-              <div className="bg-black/30 rounded p-1.5 text-amber-200/90">/setdomain</div>
-              <div className="bg-black/30 rounded p-1.5 text-amber-200/90">@{BOT_USERNAME}</div>
-              <div className="bg-black/30 rounded p-1.5 text-green-300 flex items-center justify-between border border-green-500/20">
-                <span className="truncate">{currentDomain}</span>
-                <button onClick={handleCopyDomain} className="shrink-0 mr-2 text-green-400">
-                  {copied ? <CheckCircle2 className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                </button>
-              </div>
-            </div>
-          </div>
-        </details>
+        </div>
       )}
 
-      <div className="text-[10px] text-muted-foreground/40 font-mono uppercase tracking-widest text-center">
-        تشفير طرف-إلى-طرف · لا تتبع · آمن
-      </div>
+      {loginState === "waiting" && (
+        <div className="space-y-3">
+          <div className="bg-secondary/30 border border-border/50 rounded-lg p-4 text-center space-y-2">
+            <div className="flex items-center justify-center gap-2 text-foreground font-medium text-sm">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              في انتظار التأكيد…
+            </div>
+            <p className="text-xs text-muted-foreground">
+              افتح تيليقرام واضغط <span className="font-bold text-foreground">Start</span> ثم ارجع هنا
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={handleOpenBot} variant="outline" size="sm" className="flex-1 gap-1.5 text-xs">
+              <Send className="w-3.5 h-3.5" /> افتح تيليقرام مجدداً
+            </Button>
+            <Button
+              onClick={() => { clearInterval(pollRef.current!); setLoginState("idle"); }}
+              variant="ghost" size="sm" className="text-xs text-muted-foreground"
+            >
+              إلغاء
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {loginState === "success" && (
+        <div className="flex items-center justify-center gap-2 py-3 text-green-500 font-bold">
+          <CheckCircle2 className="w-5 h-5" />
+          تم تسجيل الدخول بنجاح
+        </div>
+      )}
+
+      {loginState === "error" && (
+        <div className="space-y-2">
+          <div className="text-destructive text-xs text-center bg-destructive/8 rounded-lg py-2 border border-destructive/20">
+            حدث خطأ — حاول مرة أخرى
+          </div>
+          <Button onClick={() => setLoginState("idle")} variant="outline" size="sm" className="w-full gap-1.5">
+            <RefreshCw className="w-3.5 h-3.5" /> إعادة المحاولة
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
 
 export function LoginPage({ onSuccess }: { onSuccess?: () => void }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6" dir="rtl">
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center space-y-3">
-          <div className="flex items-center justify-center gap-3 text-primary">
-            <Terminal className="w-8 h-8" />
-            <h1 className="text-4xl font-bold font-mono tracking-widest text-glow uppercase">LYOSINT</h1>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6 py-10" dir="rtl">
+      <div className="w-full max-w-[400px] space-y-7">
+
+        {/* Brand */}
+        <div className="text-center space-y-2">
+          <div className="flex items-center justify-center gap-3 mb-1">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <Terminal className="w-5 h-5 text-primary" />
+            </div>
           </div>
-          <p className="text-muted-foreground text-sm font-mono">منصة الاستخبارات الليبية المفتوحة</p>
+          <h1 className="text-3xl font-bold font-mono tracking-widest text-primary uppercase">LYOSINT</h1>
+          <p className="text-sm text-muted-foreground">منصة الاستخبارات الليبية المفتوحة</p>
         </div>
 
-        <div className="relative">
-          <div className="absolute inset-0 bg-primary/5 rounded-2xl blur-2xl" />
-          <div className="relative bg-card border border-primary/20 rounded-xl p-6 space-y-6 border-glow">
+        {/* Card */}
+        <div className="bg-card border border-border/60 rounded-xl shadow-md overflow-hidden">
+          {/* Stats Strip */}
+          <div className="grid grid-cols-3 divide-x divide-x-reverse divide-border/40 border-b border-border/40">
+            {[
+              { value: "30 د", sub: "شهرياً" },
+              { value: "3",    sub: "مجانياً" },
+              { value: "40+",  sub: "منصة" },
+            ].map(({ value, sub }) => (
+              <div key={sub} className="py-3 text-center">
+                <div className="text-lg font-bold text-primary font-mono">{value}</div>
+                <div className="text-[10px] text-muted-foreground uppercase font-medium mt-0.5">{sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Login Section */}
+          <div className="p-5 space-y-4">
             <div className="text-center space-y-1">
-              <h2 className="text-lg font-bold text-foreground">ادخل إلى نظام الاستخبارات</h2>
-              <p className="text-xs text-muted-foreground font-mono">3 عمليات بحث مجانية · ثم 30 دينار ليبي / شهر</p>
+              <div className="flex items-center justify-center gap-1.5 text-muted-foreground text-sm">
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>تسجيل دخول آمن — بلا كلمات مرور</span>
+              </div>
             </div>
-
-            <div className="grid grid-cols-3 gap-3 text-center">
-              {[{ label: "منصة", value: "40+" }, { label: "مجاني", value: "3" }, { label: "شهري", value: "30 د" }].map((item) => (
-                <div key={item.label} className="bg-secondary/30 rounded-lg p-3 border border-border/40">
-                  <div className="text-lg font-bold text-primary font-mono text-glow">{item.value}</div>
-                  <div className="text-[10px] text-muted-foreground uppercase font-mono mt-1">{item.label}</div>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t border-border/30 pt-5">
-              <TelegramLoginButton onSuccess={onSuccess} />
-            </div>
+            <TelegramLoginButton onSuccess={onSuccess} />
           </div>
         </div>
 
-        <p className="text-center text-[10px] text-muted-foreground/40 font-mono">LYOSINT v3.0 · OSINT PLATFORM · LIBYA</p>
+        <p className="text-center text-[10px] text-muted-foreground/40 font-mono uppercase tracking-widest">
+          LYOSINT v3.0 · OSINT PLATFORM · LIBYA
+        </p>
       </div>
     </div>
   );

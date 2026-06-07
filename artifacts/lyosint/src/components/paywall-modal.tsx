@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Zap, CheckCircle2, Lock, Send, Loader2 } from "lucide-react";
+import { CheckCircle2, Lock, Send, Loader2, Crown } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -13,7 +12,7 @@ interface PaywallModalProps {
 }
 
 export function PaywallModal({ open, onClose }: PaywallModalProps) {
-  const { user, token, refreshUser } = useAuth();
+  const { token, refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -28,6 +27,7 @@ export function PaywallModal({ open, onClose }: PaywallModalProps) {
       setDone(true);
       setTimeout(() => { setDone(false); onClose(); }, 1800);
     } catch {
+      //
     } finally {
       setLoading(false);
     }
@@ -39,71 +39,76 @@ export function PaywallModal({ open, onClose }: PaywallModalProps) {
     "بحث شامل متقاطع",
     "تقارير الاستخبارات المفصّلة",
     "أولوية المعالجة",
-    "دعم فني متخصص",
+    "دعم فني مخصص",
   ];
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md bg-card border-primary/20 border-glow p-0 overflow-hidden" dir="rtl">
-        <div className="bg-gradient-to-b from-primary/10 to-transparent p-6 border-b border-border/50">
+      <DialogContent className="max-w-sm bg-card border-border/60 shadow-xl p-0 overflow-hidden" dir="rtl">
+        {/* Header */}
+        <div className="p-5 border-b border-border/40">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-primary font-mono uppercase tracking-wider text-glow">
-              <Lock className="w-5 h-5" />
-              انتهت عمليات البحث المجانية
+            <DialogTitle className="flex items-center gap-2 text-foreground font-bold text-base">
+              <Lock className="w-4 h-4 text-primary shrink-0" />
+              الخطة المجانية اكتملت
             </DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground mt-2">
-            لقد استخدمت الـ <span className="text-primary font-bold">3 عمليات</span> المجانية. اشترك للاستمرار.
+          <p className="text-sm text-muted-foreground mt-1.5">
+            اشترك للاستمرار في البحث الاستخباراتي بلا حدود.
           </p>
         </div>
 
-        <div className="p-6 space-y-5">
-          <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 text-center space-y-1 border-glow">
-            <div className="text-4xl font-bold text-primary font-mono text-glow">30</div>
-            <div className="text-lg text-foreground font-bold">دينار ليبي</div>
-            <div className="text-xs text-muted-foreground font-mono uppercase">/ شهر · وصول كامل</div>
+        <div className="p-5 space-y-4">
+          {/* Price */}
+          <div className="bg-primary/6 border border-primary/15 rounded-lg p-4 text-center space-y-0.5">
+            <div className="flex items-end justify-center gap-1">
+              <span className="text-4xl font-bold text-primary font-mono">30</span>
+              <span className="text-sm text-muted-foreground mb-1.5 font-medium">دينار ليبي</span>
+            </div>
+            <div className="text-[11px] text-muted-foreground font-mono uppercase">لكل شهر · وصول كامل</div>
           </div>
 
+          {/* Features */}
           <ul className="space-y-2">
             {FEATURES.map((f) => (
-              <li key={f} className="flex items-center gap-2.5 text-sm">
-                <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                <span className="text-foreground/90">{f}</span>
+              <li key={f} className="flex items-center gap-2.5 text-sm text-foreground/85">
+                <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                {f}
               </li>
             ))}
           </ul>
 
           {done ? (
-            <div className="flex items-center justify-center gap-2 py-3 text-green-500 font-bold">
-              <CheckCircle2 className="w-5 h-5" />
-              تم تفعيل الاشتراك بنجاح!
+            <div className="flex items-center justify-center gap-2 py-2.5 text-green-500 font-bold text-sm">
+              <CheckCircle2 className="w-4 h-4" />
+              تم تفعيل الاشتراك بنجاح
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <Button
                 onClick={handleSubscribe}
                 disabled={loading}
-                className="w-full h-12 font-bold text-base gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                className="w-full h-11 font-bold gap-2"
               >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Zap className="w-4 h-4" />
-                )}
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crown className="w-4 h-4" />}
                 اشترك الآن — 30 دينار / شهر
               </Button>
 
-              <div className="bg-secondary/30 rounded-lg p-3 border border-border/40">
-                <p className="text-xs text-muted-foreground text-center font-mono flex items-center justify-center gap-1.5">
-                  <Send className="w-3 h-3 text-primary" />
-                  للدفع: أرسل 30 دينار عبر التحويل ثم تواصل معنا على تيليقرام
-                  {user?.username && (
-                    <span className="text-primary font-bold"> @lyosint_support</span>
-                  )}
+              <div className="bg-secondary/30 rounded-lg px-3 py-2.5 border border-border/40 text-center">
+                <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1.5 flex-wrap">
+                  <Send className="w-3 h-3 text-primary shrink-0" />
+                  للدفع: حوّل 30 دينار ثم راسلنا على تيليقرام
+                  <a href="https://t.me/lyosint_support" target="_blank" rel="noopener noreferrer"
+                    className="text-primary font-bold hover:underline" dir="ltr">
+                    @lyosint_support
+                  </a>
                 </p>
               </div>
 
-              <button onClick={onClose} className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-1">
+              <button
+                onClick={onClose}
+                className="w-full text-[11px] text-muted-foreground hover:text-foreground transition-colors py-1"
+              >
                 ليس الآن
               </button>
             </div>
