@@ -140,7 +140,19 @@ async function checkOneSite(
 
     const resp = await fetch(url, fetchOpts);
     const httpStatus = resp.status;
-    const body = await resp.text();
+    // Hard race: body read must complete within perSiteTimeoutMs after the response
+    // (the AbortController should do this, but undici edge cases can leave the read hanging)
+    const body = await Promise.race([
+      resp.text(),
+      new Promise<string>((_, reject) => {
+        const t = setTimeout(() => reject(new Error("body_read_timeout")), perSiteTimeoutMs);
+        // If the controller aborts (per-site or global), reject early
+        controller.signal.addEventListener("abort", () => {
+          clearTimeout(t);
+          reject(new Error("aborted"));
+        }, { once: true });
+      }),
+    ]);
     const elapsed = Date.now() - start;
 
     let found = false;
@@ -182,6 +194,7 @@ async function mapWithConcurrency<T, R>(
   concurrency: number,
   fn: (item: T) => Promise<R>,
   abortSignal?: AbortSignal,
+  perCallTimeoutMs?: number,
 ): Promise<R[]> {
   const results: (R | undefined)[] = new Array(items.length);
   let idx = 0;
@@ -199,7 +212,24 @@ async function mapWithConcurrency<T, R>(
       const i = idx++;
       if (i >= items.length) return;
       try {
-        results[i] = await fn(items[i]);
+        // Hard race: a single fn call must never hang longer than perCallTimeoutMs
+        // This is the last line of defense against fetch/undici edge cases
+        if (perCallTimeoutMs) {
+          results[i] = await Promise.race([
+            fn(items[i]),
+            new Promise<never>((_, reject) => {
+              const t = setTimeout(
+                () => reject(new Error("hard_per_call_timeout")),
+                perCallTimeoutMs,
+              );
+              if (abortSignal) {
+                abortSignal.addEventListener("abort", () => { clearTimeout(t); reject(new Error("aborted")); }, { once: true });
+              }
+            }),
+          ]);
+        } else {
+          results[i] = await fn(items[i]);
+        }
       } catch {
         results[i] = undefined;
       }
@@ -242,14 +272,18 @@ export async function checkWhatsMyName(
 
   // mapWithConcurrency respects the abort signal — workers stop dispatching new items
   // and the function returns once in-flight requests complete
+  // The per-call hard timeout (perSiteTimeoutMs + 1s) is a backstop for undici fetch edge cases
   const settled = await mapWithConcurrency(
     sites,
     concurrency,
     (s) => checkOneSite(s, username, perSiteTimeoutMs, globalController.signal),
     globalController.signal,
+    perSiteTimeoutMs + 1000,
   ).finally(() => clearTimeout(globalTimeout));
 
-  return settled.map(({ site, found, httpStatus, responseTimeMs, error }) => {
+  return settled
+    .filter((r): r is SiteResult => r !== undefined)
+    .map(({ site, found, httpStatus, responseTimeMs, error }) => {
     const detectionMethod: "status_code" | "message" =
       site.e_code !== site.m_code ? "status_code" : "message";
     return {
