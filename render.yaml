@@ -1,14 +1,14 @@
 services:
-  - type: pserv
+  - type: web_service
     name: lyosint
-    runtime: docker
-    plan: starter
+    runtime: node
+    plan: free
     region: oregon
     branch: main
     rootDir: .
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
     healthCheckPath: /api/health
+    buildCommand: pnpm install --frozen-lockfile=false && pnpm run build
+    startCommand: node dist/index.mjs
     autoDeploy: true
     envVars:
       - key: NODE_ENV
