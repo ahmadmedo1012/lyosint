@@ -20,6 +20,13 @@ export interface UsernameResult {
   githubProfile?: GitHubProfile;
   breaches: BreachEntry[];
   emailRep?: EmailRep;
+  sources?: string[];
+  /** @nullable */
+  profilePhoto?: string | null;
+  /** @nullable */
+  profileBio?: string | null;
+  /** @nullable */
+  profileFullname?: string | null;
   certDomains: string[];
   /** @nullable */
   possibleEmail?: string | null;

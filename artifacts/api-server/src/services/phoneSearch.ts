@@ -2,6 +2,7 @@ import { db, searchesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { libyaCarrierFromPhone, libyaRegionFromPhone, normalizeLibyaPhone } from "./libyaHelpers";
 import { validatePhone } from "./freeApis";
+import { getPhoneMeta, getCountryName, type PhoneMeta } from "./phoneHelpers";
 
 const STEP_MS = 180;
 
@@ -10,8 +11,11 @@ export async function runPhoneSearch(id: string, rawPhone: string): Promise<void
     await db.update(searchesTable).set({ status: "running", progress: 5 }).where(eq(searchesTable.id, id));
 
     const phone = normalizeLibyaPhone(rawPhone);
-    const valid = /^\+218[0-9]{9}$/.test(phone) || /^\+[1-9][0-9]{7,14}$/.test(phone);
     const isLibyan = phone.startsWith("+218");
+
+    // ── libphonenumber-js: parse + validate + country + line type ───────────
+    const phoneMeta: PhoneMeta = getPhoneMeta(phone);
+    const valid = phoneMeta.valid || /^\+218[0-9]{9}$/.test(phone);
 
     await sleep(STEP_MS);
     await db.update(searchesTable).set({ progress: 15 }).where(eq(searchesTable.id, id));
@@ -19,7 +23,7 @@ export async function runPhoneSearch(id: string, rawPhone: string): Promise<void
     // ── Carrier & region (Libyan prefix rules) ───────────────────────────────
     const carrier = isLibyan ? libyaCarrierFromPhone(phone) : null;
     const region = isLibyan ? libyaRegionFromPhone(phone) : null;
-    const nationalFormat = valid ? formatNational(phone) : null;
+    const nationalFormat = phoneMeta.nationalFormat ?? (valid ? formatNational(phone) : null);
 
     await sleep(STEP_MS);
     await db.update(searchesTable).set({ progress: 30 }).where(eq(searchesTable.id, id));
@@ -57,32 +61,58 @@ export async function runPhoneSearch(id: string, rawPhone: string): Promise<void
     await sleep(STEP_MS);
     await db.update(searchesTable).set({ progress: 88 }).where(eq(searchesTable.id, id));
 
+    // ── Country code/name: prefer libphonenumber-js > Numverify > Libyan fallback
+    const detectedCountryCode = phoneMeta.country ?? null;
+    const detectedCountryName = getCountryName(detectedCountryCode) ?? numverifyData?.countryName ?? (isLibyan ? "Libya" : null);
+
+    // ── Line type: prefer libphonenumber-js > Numverify > local default ──────
+    const libpnLineType = phoneMeta.numberType
+      ? phoneMeta.numberType.toLowerCase().replace(/_/g, "_")
+      : null;
+    const lineType = libpnLineType ?? numverifyData?.lineType ?? (valid ? "mobile" : "unknown");
+
     // ── Confidence score ──────────────────────────────────────────────────────
     let confidence = 0.15;
     if (valid) confidence += 0.25;
     if (isLibyan && carrier) confidence += 0.2;
     if (region) confidence += 0.1;
     if (numverifyData?.valid) confidence += 0.2;
+    if (phoneMeta.valid && phoneMeta.country) confidence += 0.1;
+    if (libpnLineType) confidence += 0.05;
     confidence = Math.round(Math.min(confidence, 0.95) * 100) / 100;
+
+    // ── dataSource tag (for transparency) ────────────────────────────────────
+    const sources: string[] = [];
+    if (phoneMeta.valid) sources.push("libphonenumber");
+    if (numverifyData?.valid) sources.push("numverify");
+    if (isLibyan) sources.push("local-rules");
+    const dataSource = sources.length > 0 ? sources.join("+") : "local-rules";
 
     const phoneResult = {
       phone,
       valid,
       nationalFormat,
-      // Libyan specific
       isLibyan,
       carrier: numverifyData?.carrier ?? carrier,
-      lineType: numverifyData?.lineType ?? (valid ? "mobile" : "unknown"),
+      lineType,
       region: numverifyData?.location ?? region,
-      // Extended (from Numverify)
-      countryName: numverifyData?.countryName ?? (isLibyan ? "Libya" : null),
-      countryCode: numverifyData?.countryCode ?? (isLibyan ? "LY" : null),
-      // Investigation links
+      countryName: detectedCountryName,
+      countryCode: numverifyData?.countryCode ?? detectedCountryCode ?? (isLibyan ? "LY" : null),
       investigativeLinks,
       messagingApps,
-      // Source
-      dataSource: numverifyData ? "numverify+local" : "local-rules",
+      dataSource,
       confidenceScore: confidence,
+      phoneMeta: {
+        valid: phoneMeta.valid,
+        possible: phoneMeta.possible,
+        e164: phoneMeta.e164,
+        nationalNumber: phoneMeta.nationalNumber,
+        country: phoneMeta.country,
+        countryCallingCode: phoneMeta.countryCallingCode,
+        numberType: phoneMeta.numberType,
+        internationalFormat: phoneMeta.internationalFormat,
+        nationalFormat: phoneMeta.nationalFormat,
+      },
     };
 
     const resultsCount = (valid ? 1 : 0) + (carrier ? 1 : 0) + investigativeLinks.length;
@@ -102,7 +132,7 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-function formatNational(phone: string): string {
+function formatNational(phone: string): string | null {
   if (phone.startsWith("+218")) {
     const local = "0" + phone.slice(4);
     return `${local.slice(0, 3)} ${local.slice(3, 6)} ${local.slice(6)}`;

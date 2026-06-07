@@ -141,7 +141,18 @@ export const GetSearchResultResponse = zod.object({
 })
 }),
   "dataSource": zod.string(),
-  "confidenceScore": zod.number()
+  "confidenceScore": zod.number(),
+  "phoneMeta": zod.object({
+  "valid": zod.boolean().optional(),
+  "possible": zod.boolean().optional(),
+  "e164": zod.string().nullish(),
+  "nationalNumber": zod.string().nullish(),
+  "country": zod.string().nullish(),
+  "countryCallingCode": zod.string().nullish(),
+  "numberType": zod.string().nullish(),
+  "internationalFormat": zod.string().nullish(),
+  "nationalFormat": zod.string().nullish()
+}).nullish()
 }).optional(),
   "usernameResult": zod.object({
   "username": zod.string(),
@@ -210,6 +221,10 @@ export const GetSearchResultResponse = zod.object({
   "domainReputation": zod.string().optional()
 }).optional()
 }).optional(),
+  "sources": zod.array(zod.string()).optional(),
+  "profilePhoto": zod.string().nullish(),
+  "profileBio": zod.string().nullish(),
+  "profileFullname": zod.string().nullish(),
   "certDomains": zod.array(zod.string()),
   "possibleEmail": zod.string().nullish(),
   "possiblePhone": zod.string().nullish(),

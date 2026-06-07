@@ -281,6 +281,24 @@ export default function SearchResultPage() {
                     {resultData.phoneResult.countryName && (
                       <DataRow label="الدولة" value={`${resultData.phoneResult.countryName}${resultData.phoneResult.countryCode ? ` (${resultData.phoneResult.countryCode})` : ""}`} />
                     )}
+                    {resultData.phoneResult.phoneMeta?.numberType && (
+                      <DataRow
+                        label="نوع الرقم (libphonenumber)"
+                        value={
+                          <Badge variant="outline" className="font-mono text-[10px] uppercase">
+                            {resultData.phoneResult.phoneMeta.numberType}
+                          </Badge>
+                        }
+                      />
+                    )}
+                    {resultData.phoneResult.phoneMeta?.internationalFormat && (
+                      <DataRow
+                        label="الصيغة الدولية"
+                        value={resultData.phoneResult.phoneMeta.internationalFormat}
+                        mono
+                        dir="ltr"
+                      />
+                    )}
                   </div>
 
                   <div className="space-y-4">
@@ -358,6 +376,41 @@ export default function SearchResultPage() {
                   title="البصمة الرقمية"
                   subtitle={`${resultData.usernameResult.totalFound} / ${resultData.usernameResult.totalPlatformsSearched} منصة`}
                 />
+
+                {(resultData.usernameResult as any).profilePhoto && (
+                  <div className="mb-4 flex items-center gap-4 px-4 py-3 bg-secondary/30 rounded-lg border border-border/40">
+                    <img
+                      src={(resultData.usernameResult as any).profilePhoto as string}
+                      alt="profile"
+                      className="w-14 h-14 rounded-full object-cover border-2 border-primary/30 shrink-0"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                    />
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      {(resultData.usernameResult as any).profileFullname && (
+                        <div className="font-bold text-foreground truncate" dir="auto">
+                          {(resultData.usernameResult as any).profileFullname}
+                        </div>
+                      )}
+                      {(resultData.usernameResult as any).profileBio && (
+                        <div className="text-xs text-muted-foreground line-clamp-2" dir="auto">
+                          {(resultData.usernameResult as any).profileBio}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {(resultData.usernameResult as any).sources && (resultData.usernameResult as any).sources.length > 0 && (
+                  <div className="mb-4 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] text-muted-foreground uppercase font-mono">المصادر:</span>
+                    {((resultData.usernameResult as any).sources as string[]).map((s: string) => (
+                      <Badge key={s} variant="outline" className="text-[10px] font-mono">
+                        {s}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
 
                 {/* Summary stats */}
                 <div className="grid grid-cols-3 gap-3 mb-5">

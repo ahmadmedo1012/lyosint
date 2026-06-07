@@ -155,6 +155,25 @@ export interface MessagingApps {
   telegram: MessagingAppStatus;
 }
 
+export interface PhoneMeta {
+  valid?: boolean;
+  possible?: boolean;
+  /** @nullable */
+  e164?: string | null;
+  /** @nullable */
+  nationalNumber?: string | null;
+  /** @nullable */
+  country?: string | null;
+  /** @nullable */
+  countryCallingCode?: string | null;
+  /** @nullable */
+  numberType?: string | null;
+  /** @nullable */
+  internationalFormat?: string | null;
+  /** @nullable */
+  nationalFormat?: string | null;
+}
+
 export interface PhoneResult {
   phone: string;
   valid: boolean;
@@ -175,6 +194,8 @@ export interface PhoneResult {
   messagingApps: MessagingApps;
   dataSource: string;
   confidenceScore: number;
+  /** @nullable */
+  phoneMeta?: PhoneMeta | null;
 }
 
 export interface PlatformProfile {
@@ -305,6 +326,13 @@ export interface UsernameResult {
   githubProfile?: GitHubProfile;
   breaches: BreachEntry[];
   emailRep?: EmailRep;
+  sources?: string[];
+  /** @nullable */
+  profilePhoto?: string | null;
+  /** @nullable */
+  profileBio?: string | null;
+  /** @nullable */
+  profileFullname?: string | null;
   certDomains: string[];
   /** @nullable */
   possibleEmail?: string | null;

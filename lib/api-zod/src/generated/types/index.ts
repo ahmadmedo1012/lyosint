@@ -23,6 +23,7 @@ export * from './messagingAppStatus';
 export * from './namedLink';
 export * from './nameResult';
 export * from './nameSearchInput';
+export * from './phoneMeta';
 export * from './phoneResult';
 export * from './phoneSearchInput';
 export * from './platformInfo';

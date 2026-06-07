@@ -391,6 +391,31 @@ components:
           type: string
         confidenceScore:
           type: number
+        phoneMeta:
+          type: ["object", "null"]
+          $ref: "#/components/schemas/PhoneMeta"
+
+    PhoneMeta:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        possible:
+          type: boolean
+        e164:
+          type: ["string", "null"]
+        nationalNumber:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        countryCallingCode:
+          type: ["string", "null"]
+        numberType:
+          type: ["string", "null"]
+        internationalFormat:
+          type: ["string", "null"]
+        nationalFormat:
+          type: ["string", "null"]
 
     InvestigativeLink:
       type: object
@@ -456,6 +481,15 @@ components:
             $ref: "#/components/schemas/BreachEntry"
         emailRep:
           $ref: "#/components/schemas/EmailRep"
+        sources:
+          type: array
+          items: { type: string }
+        profilePhoto:
+          type: ["string", "null"]
+        profileBio:
+          type: ["string", "null"]
+        profileFullname:
+          type: ["string", "null"]
         certDomains:
           type: array
           items:

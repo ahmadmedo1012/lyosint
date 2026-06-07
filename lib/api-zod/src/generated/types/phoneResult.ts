@@ -7,6 +7,7 @@
  */
 import type { InvestigativeLink } from './investigativeLink';
 import type { MessagingApps } from './messagingApps';
+import type { PhoneMeta } from './phoneMeta';
 
 export interface PhoneResult {
   phone: string;
@@ -28,4 +29,6 @@ export interface PhoneResult {
   messagingApps: MessagingApps;
   dataSource: string;
   confidenceScore: number;
+  /** @nullable */
+  phoneMeta?: PhoneMeta | null;
 }

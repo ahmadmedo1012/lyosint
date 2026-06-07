@@ -58,4 +58,5 @@ render-build.log
 .env.production
 .opencode/
 .specify/
+.kilocode/
 AGENTS.md
