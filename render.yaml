@@ -7,8 +7,8 @@ services:
     branch: main
     rootDir: .
     healthCheckPath: /api/health
-    buildCommand: pnpm install --frozen-lockfile=false && pnpm run build
-    startCommand: node dist/index.mjs
+    buildCommand: pnpm install --frozen-lockfile=false ; pnpm run build
+    startCommand: node --enable-source-maps artifacts/api-server/dist/index.mjs
     autoDeploy: true
     envVars:
       - key: NODE_ENV

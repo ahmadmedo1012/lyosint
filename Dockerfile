@@ -10,4 +10,4 @@ RUN pnpm run build
 ENV NODE_ENV=production
 ENV PORT=10000
 EXPOSE 10000
-CMD ["node", "dist/index.mjs"]
+CMD ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
