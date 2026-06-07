@@ -225,9 +225,20 @@ export async function checkWhatsMyName(
   const globalController = new AbortController();
   const globalTimeout = setTimeout(() => globalController.abort(), globalTimeoutMs);
 
-  const settled = await mapWithConcurrency(sites, concurrency, (s) =>
+  // Hard wall-clock: if mapWithConcurrency doesn't settle in time, return what we have
+  const concurrencyPromise = mapWithConcurrency(sites, concurrency, (s) =>
     checkOneSite(s, username, perSiteTimeoutMs, globalController.signal),
   ).finally(() => clearTimeout(globalTimeout));
+
+  const hardTimeout = new Promise<SiteResult[]>((resolve) => {
+    setTimeout(() => {
+      globalController.abort();
+      // Give workers a brief window to finish in-flight aborts, then resolve with partial
+      setTimeout(() => resolve([]), 2000);
+    }, globalTimeoutMs);
+  });
+
+  const settled = await Promise.race([concurrencyPromise, hardTimeout]).catch(() => []);
 
   return settled.map(({ site, found, httpStatus, responseTimeMs, error }) => {
     const detectionMethod: "status_code" | "message" =
