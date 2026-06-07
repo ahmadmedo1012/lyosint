@@ -1,12 +1,12 @@
 services:
   - type: pserv
-    name: lyosint-api
+    name: lyosint
     runtime: node
     plan: starter
     region: oregon
     branch: main
     rootDir: .
-    buildCommand: pnpm install --frozen-lockfile=false && pnpm --filter @workspace/db run push && pnpm --filter @workspace/api-server run build
+    buildCommand: pnpm install --frozen-lockfile=false && pnpm --filter @workspace/db run push && pnpm run build
     startCommand: pnpm --filter @workspace/api-server run start
     healthCheckPath: /api/health
     autoDeploy: true
@@ -24,23 +24,9 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
-      - key: CORS_ORIGIN
+      - key: VITE_TELEGRAM_BOT_USERNAME
+        value: lyosintbot
         sync: false
-    disk:
-      name: lyosint-data
-      mountPath: /var/data
-      sizeGB: 1
-
-staticSites:
-  - type: web
-    name: lyosint-web
-    runtime: static
-    plan: free
-    branch: main
-    rootDir: .
-    buildCommand: pnpm install --frozen-lockfile=false && pnpm --filter @workspace/lyosint run build
-    staticPublishPath: artifacts/lyosint/dist/public
-    pullRequestPreviewsEnabled: true
-    envVars:
       - key: VITE_API_URL
+        value: ""
         sync: false
