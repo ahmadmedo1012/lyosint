@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Users, Crown, Search, RefreshCw, Trash2, CheckCircle2, XCircle,
   Shield, ChevronRight, ChevronLeft, Loader2, LogOut, Lock, Eye,
-  EyeOff, Key, ExternalLink, Zap, AlertCircle, Settings2,
+  EyeOff, Key, ExternalLink, Zap, AlertCircle, Settings2, Sliders,
+  UserCog, Globe, ToggleLeft, ToggleRight, Save, RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +13,7 @@ import { Input } from "@/components/ui/input";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const ADMIN_TOKEN_KEY = "lyosint_admin_token";
 
-type Tab = "users" | "services";
+type Tab = "users" | "services" | "system" | "credentials";
 
 interface AdminUser {
   id: string; telegramId: string; firstName: string; lastName?: string | null;
@@ -25,11 +26,21 @@ interface ServiceConfig {
   url: string; scope: string; freeLimit: string;
   isConfigured: boolean; updatedAt: string | null;
 }
+interface SystemConfigItem {
+  key: string; name: string; description: string;
+  type: "number" | "text" | "boolean";
+  value: string; defaultValue: string;
+  min?: number; max?: number;
+}
 
 function apiFetch(path: string, options: RequestInit, token: string) {
   return fetch(`${BASE}${path}`, {
     ...options,
-    headers: { "Content-Type": "application/json", "x-admin-token": token, ...(options.headers as Record<string, string> ?? {}) },
+    headers: {
+      "Content-Type": "application/json",
+      "x-admin-token": token,
+      ...(options.headers as Record<string, string> ?? {}),
+    },
   }).then(async (r) => {
     const data = await r.json();
     if (!r.ok) throw new Error(data.error ?? r.statusText);
@@ -37,7 +48,7 @@ function apiFetch(path: string, options: RequestInit, token: string) {
   });
 }
 
-/* ── Admin Login Gate ─────────────────────────────────────────── */
+/* ── Admin Login Gate ─────────────────────────────────────────────────────── */
 function AdminLogin({ onLogin }: { onLogin: (t: string) => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -85,7 +96,8 @@ function AdminLogin({ onLogin }: { onLogin: (t: string) => void }) {
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">كلمة المرور</label>
                 <div className="relative">
-                  <Input type={showPass ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
+                  <Input type={showPass ? "text" : "password"} value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••" autoComplete="current-password"
                     className="h-10 bg-background border-border/60 pl-10" dir="ltr" />
                   <button type="button" onClick={() => setShowPass(!showPass)}
@@ -94,7 +106,11 @@ function AdminLogin({ onLogin }: { onLogin: (t: string) => void }) {
                   </button>
                 </div>
               </div>
-              {error && <div className="text-xs text-destructive bg-destructive/8 border border-destructive/20 rounded-lg px-3 py-2 text-center">{error}</div>}
+              {error && (
+                <div className="text-xs text-destructive bg-destructive/8 border border-destructive/20 rounded-lg px-3 py-2 text-center">
+                  {error}
+                </div>
+              )}
               <Button type="submit" disabled={loading || !username || !password} className="w-full h-10 font-bold gap-2">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
                 دخول
@@ -108,7 +124,7 @@ function AdminLogin({ onLogin }: { onLogin: (t: string) => void }) {
   );
 }
 
-/* ── Services / API Keys Tab ──────────────────────────────────── */
+/* ── Services / API Keys Tab ──────────────────────────────────────────────── */
 function ServicesTab({ token }: { token: string }) {
   const [services, setServices] = useState<ServiceConfig[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,8 +150,7 @@ function ServicesTab({ token }: { token: string }) {
       await apiFetch(`/api/admin/settings/${key}`, { method: "PUT", body: JSON.stringify({ value: inputVal.trim() }) }, token);
       setSaveMsg({ key, ok: true });
       setTimeout(() => setSaveMsg(null), 2500);
-      setEditing(null);
-      setInputVal("");
+      setEditing(null); setInputVal("");
       await fetchServices();
     } catch {
       setSaveMsg({ key, ok: false });
@@ -153,19 +168,20 @@ function ServicesTab({ token }: { token: string }) {
   };
 
   const categoryColors: Record<string, string> = {
-    developer: "text-blue-400 bg-blue-500/10 border-blue-500/20",
-    email:     "text-purple-400 bg-purple-500/10 border-purple-500/20",
-    breach:    "text-red-400 bg-red-500/10 border-red-500/20",
-    network:   "text-orange-400 bg-orange-500/10 border-orange-500/20",
-    phone:     "text-green-400 bg-green-500/10 border-green-500/20",
-    threat:    "text-yellow-400 bg-yellow-500/10 border-yellow-500/20",
-    social:    "text-pink-400 bg-pink-500/10 border-pink-500/20",
+    developer:    "text-blue-400 bg-blue-500/10 border-blue-500/20",
+    email:        "text-purple-400 bg-purple-500/10 border-purple-500/20",
+    breach:       "text-red-400 bg-red-500/10 border-red-500/20",
+    network:      "text-orange-400 bg-orange-500/10 border-orange-500/20",
+    phone:        "text-green-400 bg-green-500/10 border-green-500/20",
+    threat:       "text-yellow-400 bg-yellow-500/10 border-yellow-500/20",
+    social:       "text-pink-400 bg-pink-500/10 border-pink-500/20",
   };
-
   const categoryLabels: Record<string, string> = {
     developer: "مطور", email: "بريد", breach: "اختراق",
     network: "شبكة", phone: "هاتف", threat: "تهديد", social: "تواصل",
   };
+
+  const configured = services.filter((s) => s.isConfigured).length;
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
@@ -175,17 +191,19 @@ function ServicesTab({ token }: { token: string }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 mb-4">
-        <AlertCircle className="w-4 h-4 text-amber-500" />
-        <p className="text-xs text-muted-foreground">
-          جميع المفاتيح مشفرة في قاعدة البيانات — لن تُعرض بعد الحفظ
-        </p>
+      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-amber-500" />
+          <p className="text-xs text-muted-foreground">المفاتيح مشفرة في قاعدة البيانات — لن تُعرض بعد الحفظ</p>
+        </div>
+        <Badge variant="secondary" className="font-mono text-xs">
+          {configured}/{services.length} مُفعَّل
+        </Badge>
       </div>
 
       {services.map((svc) => {
         const isEditing = editing === svc.key;
         const msgForThis = saveMsg?.key === svc.key;
-
         return (
           <Card key={svc.key} className={`border-border/50 shadow-sm transition-all ${svc.isConfigured ? "border-primary/20" : ""}`}>
             <CardContent className="p-4">
@@ -215,7 +233,6 @@ function ServicesTab({ token }: { token: string }) {
                     </a>
                   </div>
                 </div>
-
                 <div className="flex items-center gap-1.5 shrink-0">
                   {svc.isConfigured && !isEditing && (
                     <Button size="sm" variant="ghost"
@@ -232,27 +249,21 @@ function ServicesTab({ token }: { token: string }) {
                   </Button>
                 </div>
               </div>
-
               {isEditing && (
-                <div className="mt-3 pt-3 border-t border-border/40 space-y-2 fade-in">
+                <div className="mt-3 pt-3 border-t border-border/40 space-y-2">
                   <div className="relative">
-                    <Input
-                      type={showVal ? "text" : "password"}
-                      value={inputVal}
+                    <Input type={showVal ? "text" : "password"} value={inputVal}
                       onChange={(e) => setInputVal(e.target.value)}
                       placeholder={`أدخل ${svc.name} API Key...`}
-                      className="h-9 bg-background border-border/60 text-sm pl-10 font-mono"
-                      dir="ltr"
-                      onKeyDown={(e) => { if (e.key === "Enter" && inputVal.trim()) handleSave(svc.key); }}
-                    />
+                      className="h-9 bg-background border-border/60 text-sm pl-10 font-mono" dir="ltr"
+                      onKeyDown={(e) => { if (e.key === "Enter" && inputVal.trim()) handleSave(svc.key); }} />
                     <button type="button" onClick={() => setShowVal(!showVal)}
                       className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                       {showVal ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button size="sm" onClick={() => handleSave(svc.key)}
-                      disabled={!inputVal.trim() || saving}
+                    <Button size="sm" onClick={() => handleSave(svc.key)} disabled={!inputVal.trim() || saving}
                       className="h-7 px-3 text-[11px] gap-1.5">
                       {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
                       حفظ
@@ -273,7 +284,327 @@ function ServicesTab({ token }: { token: string }) {
   );
 }
 
-/* ── Users Tab ────────────────────────────────────────────────── */
+/* ── System Config Tab ────────────────────────────────────────────────────── */
+function SystemConfigTab({ token }: { token: string }) {
+  const [config, setConfig] = useState<SystemConfigItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState<string | null>(null);
+  const [msgs, setMsgs] = useState<Record<string, { ok: boolean; text: string }>>({});
+
+  const fetchConfig = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await apiFetch("/api/admin/system-config", {}, token);
+      setConfig(data.config ?? []);
+    } catch { } finally { setLoading(false); }
+  }, [token]);
+
+  useEffect(() => { fetchConfig(); }, [fetchConfig]);
+
+  const startEdit = (key: string, current: string) => {
+    setEditing((prev) => ({ ...prev, [key]: current }));
+  };
+  const cancelEdit = (key: string) => {
+    setEditing((prev) => { const n = { ...prev }; delete n[key]; return n; });
+  };
+
+  const handleSave = async (item: SystemConfigItem) => {
+    const val = editing[item.key] ?? item.value;
+    setSaving(item.key);
+    try {
+      await apiFetch(`/api/admin/system-config/${item.key}`, {
+        method: "PUT", body: JSON.stringify({ value: val }),
+      }, token);
+      setMsgs((p) => ({ ...p, [item.key]: { ok: true, text: "✓ تم الحفظ" } }));
+      setTimeout(() => setMsgs((p) => { const n = { ...p }; delete n[item.key]; return n; }), 2500);
+      cancelEdit(item.key);
+      await fetchConfig();
+    } catch {
+      setMsgs((p) => ({ ...p, [item.key]: { ok: false, text: "✗ فشل الحفظ" } }));
+      setTimeout(() => setMsgs((p) => { const n = { ...p }; delete n[item.key]; return n; }), 2500);
+    } finally { setSaving(null); }
+  };
+
+  const handleReset = async (item: SystemConfigItem) => {
+    if (!confirm(`إعادة تعيين "${item.name}" للقيمة الافتراضية (${item.defaultValue})؟`)) return;
+    setSaving(item.key);
+    try {
+      await apiFetch(`/api/admin/system-config/${item.key}`, {
+        method: "PUT", body: JSON.stringify({ value: item.defaultValue }),
+      }, token);
+      await fetchConfig();
+    } catch { } finally { setSaving(null); }
+  };
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground/40" />
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 mb-4">
+        <Globe className="w-4 h-4 text-primary/60" />
+        <p className="text-xs text-muted-foreground">إعدادات النظام — تُطبَّق فوراً دون إعادة تشغيل</p>
+      </div>
+
+      {config.map((item) => {
+        const isEditing = item.key in editing;
+        const currentVal = editing[item.key] ?? item.value;
+        const isChanged = currentVal !== item.value;
+        const isBool = item.type === "boolean";
+        const msg = msgs[item.key];
+
+        return (
+          <Card key={item.key} className="border-border/50 shadow-sm">
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0 space-y-0.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-sm">{item.name}</span>
+                    <span className="text-[10px] font-mono text-muted-foreground/60 bg-secondary px-1.5 py-0.5 rounded">
+                      {item.key}
+                    </span>
+                    {item.value !== item.defaultValue && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-amber-500 border-amber-500/30">مُعدَّل</Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{item.description}</p>
+                  <p className="text-[11px] text-muted-foreground/50 font-mono">افتراضي: {item.defaultValue}</p>
+                </div>
+
+                {isBool ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={async () => {
+                        const newVal = item.value === "true" ? "false" : "true";
+                        setSaving(item.key);
+                        try {
+                          await apiFetch(`/api/admin/system-config/${item.key}`, {
+                            method: "PUT", body: JSON.stringify({ value: newVal }),
+                          }, token);
+                          await fetchConfig();
+                        } catch { } finally { setSaving(null); }
+                      }}
+                      disabled={saving === item.key}
+                      className="text-primary hover:text-primary/80 transition-colors"
+                    >
+                      {saving === item.key ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : item.value === "true" ? (
+                        <ToggleRight className="w-8 h-8 text-primary" />
+                      ) : (
+                        <ToggleLeft className="w-8 h-8 text-muted-foreground" />
+                      )}
+                    </button>
+                    <span className={`text-xs font-medium ${item.value === "true" ? "text-primary" : "text-muted-foreground"}`}>
+                      {item.value === "true" ? "مفعَّل" : "معطَّل"}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {!isEditing ? (
+                      <>
+                        <span className="text-sm font-mono text-primary font-bold min-w-[2rem] text-center">
+                          {item.value}
+                        </span>
+                        <Button size="sm" variant="outline" className="h-7 px-2 border-border/60 text-[11px]"
+                          onClick={() => startEdit(item.key, item.value)}>
+                          <Sliders className="w-3 h-3" />
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          type={item.type === "number" ? "number" : "text"}
+                          value={currentVal}
+                          onChange={(e) => setEditing((p) => ({ ...p, [item.key]: e.target.value }))}
+                          className="h-7 w-20 text-xs font-mono bg-background border-border/60 text-center"
+                          min={item.min} max={item.max} dir="ltr"
+                          onKeyDown={(e) => { if (e.key === "Enter") handleSave(item); if (e.key === "Escape") cancelEdit(item.key); }}
+                        />
+                        <Button size="sm" onClick={() => handleSave(item)} disabled={saving === item.key}
+                          className="h-7 px-2 text-[11px] gap-1">
+                          {saving === item.key ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => cancelEdit(item.key)}
+                          className="h-7 px-2 text-[11px]">
+                          <XCircle className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {msg && (
+                <p className={`text-[11px] font-medium mt-1.5 ${msg.ok ? "text-green-500" : "text-destructive"}`}>
+                  {msg.text}
+                </p>
+              )}
+
+              {!isBool && item.value !== item.defaultValue && !isEditing && (
+                <button onClick={() => handleReset(item)}
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-muted-foreground mt-1.5 transition-colors">
+                  <RotateCcw className="w-2.5 h-2.5" /> إعادة تعيين للافتراضي
+                </button>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Change Credentials Tab ────────────────────────────────────────────────── */
+function CredentialsTab({ token, onSessionExpired }: { token: string; onSessionExpired: () => void }) {
+  const [form, setForm] = useState({ currentPassword: "", newUsername: "", newPassword: "", confirmPassword: "" });
+  const [show, setShow] = useState({ current: false, new: false, confirm: false });
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const update = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
+
+  const validate = () => {
+    if (!form.currentPassword) return "أدخل كلمة المرور الحالية";
+    if (form.newUsername && form.newUsername.trim().length < 3) return "اسم المستخدم يجب أن يكون 3 أحرف على الأقل";
+    if (form.newPassword && form.newPassword.length < 6) return "كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل";
+    if (form.newPassword && form.newPassword !== form.confirmPassword) return "كلمة المرور الجديدة غير متطابقة";
+    if (!form.newUsername && !form.newPassword) return "أدخل اسم مستخدم جديد أو كلمة مرور جديدة";
+    return null;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const err = validate();
+    if (err) { setMsg({ ok: false, text: err }); return; }
+    setLoading(true); setMsg(null);
+    try {
+      await apiFetch("/api/admin/change-credentials", {
+        method: "POST",
+        body: JSON.stringify({
+          currentPassword: form.currentPassword,
+          ...(form.newUsername ? { newUsername: form.newUsername.trim() } : {}),
+          ...(form.newPassword ? { newPassword: form.newPassword } : {}),
+        }),
+      }, token);
+      setMsg({ ok: true, text: "✓ تم تحديث بيانات الاعتماد — يُرجى تسجيل الدخول مرة أخرى إذا غيرت كلمة المرور" });
+      setForm({ currentPassword: "", newUsername: "", newPassword: "", confirmPassword: "" });
+      if (form.newPassword) {
+        setTimeout(() => onSessionExpired(), 2000);
+      }
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof Error ? err.message : "فشل التحديث" });
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="space-y-4 max-w-md mx-auto">
+      <div className="flex items-center gap-2 mb-4">
+        <UserCog className="w-4 h-4 text-primary/60" />
+        <p className="text-xs text-muted-foreground">تغيير بيانات دخول لوحة التحكم — تُطبَّق فوراً</p>
+      </div>
+
+      <Card className="border-border/50 shadow-sm">
+        <CardContent className="pt-5 pb-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Current Password */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">كلمة المرور الحالية <span className="text-destructive">*</span></label>
+              <div className="relative">
+                <Input type={show.current ? "text" : "password"} value={form.currentPassword}
+                  onChange={(e) => update("currentPassword", e.target.value)}
+                  placeholder="••••••••" autoComplete="current-password"
+                  className="h-9 bg-background border-border/60 pl-10 text-sm" dir="ltr" />
+                <button type="button" onClick={() => setShow((p) => ({ ...p, current: !p.current }))}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" tabIndex={-1}>
+                  {show.current ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="h-px bg-border/40" />
+
+            {/* New Username */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">اسم المستخدم الجديد (اختياري)</label>
+              <Input value={form.newUsername} onChange={(e) => update("newUsername", e.target.value)}
+                placeholder="admin" autoComplete="username"
+                className="h-9 bg-background border-border/60 text-sm" dir="ltr" />
+            </div>
+
+            {/* New Password */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">كلمة المرور الجديدة (اختياري)</label>
+              <div className="relative">
+                <Input type={show.new ? "text" : "password"} value={form.newPassword}
+                  onChange={(e) => update("newPassword", e.target.value)}
+                  placeholder="••••••••" autoComplete="new-password"
+                  className="h-9 bg-background border-border/60 pl-10 text-sm" dir="ltr" />
+                <button type="button" onClick={() => setShow((p) => ({ ...p, new: !p.new }))}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" tabIndex={-1}>
+                  {show.new ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Confirm Password */}
+            {form.newPassword && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">تأكيد كلمة المرور الجديدة</label>
+                <div className="relative">
+                  <Input type={show.confirm ? "text" : "password"} value={form.confirmPassword}
+                    onChange={(e) => update("confirmPassword", e.target.value)}
+                    placeholder="••••••••" autoComplete="new-password"
+                    className="h-9 bg-background border-border/60 pl-10 text-sm" dir="ltr" />
+                  <button type="button" onClick={() => setShow((p) => ({ ...p, confirm: !p.confirm }))}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" tabIndex={-1}>
+                    {show.confirm ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                {form.newPassword && form.confirmPassword && form.newPassword !== form.confirmPassword && (
+                  <p className="text-[11px] text-destructive">كلمتا المرور غير متطابقتين</p>
+                )}
+              </div>
+            )}
+
+            {msg && (
+              <div className={`text-xs rounded-lg px-3 py-2.5 border text-center ${msg.ok ? "text-green-600 bg-green-500/8 border-green-500/20" : "text-destructive bg-destructive/8 border-destructive/20"}`}>
+                {msg.text}
+              </div>
+            )}
+
+            <Button type="submit" disabled={loading || !form.currentPassword} className="w-full h-9 gap-2">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              حفظ التغييرات
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card className="border-amber-500/20 bg-amber-500/5">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+            <div className="space-y-1 text-xs text-muted-foreground">
+              <p className="font-medium text-amber-600">تنبيهات مهمة:</p>
+              <ul className="space-y-1 list-disc list-inside">
+                <li>تغيير كلمة المرور يلغي جميع الجلسات النشطة</li>
+                <li>البيانات محفوظة في قاعدة البيانات وتتجاوز المتغيرات البيئية</li>
+                <li>احتفظ بكلمة المرور في مكان آمن</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* ── Users Tab ────────────────────────────────────────────────────────────── */
 function UsersTab({ token, onSessionExpired }: { token: string; onSessionExpired: () => void }) {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -328,10 +659,10 @@ function UsersTab({ token, onSessionExpired }: { token: string; onSessionExpired
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "المستخدمون",  value: stats?.totalUsers,                               icon: Users },
-          { label: "المشتركون",   value: stats?.subscribedUsers,                          icon: Crown },
-          { label: "عمليات البحث",value: stats?.totalSearches,                            icon: Search },
-          { label: "المجانيون",   value: stats && (stats.totalUsers - stats.subscribedUsers), icon: Users },
+          { label: "المستخدمون",   value: stats?.totalUsers,                               icon: Users },
+          { label: "المشتركون",    value: stats?.subscribedUsers,                          icon: Crown },
+          { label: "عمليات البحث", value: stats?.totalSearches,                            icon: Search },
+          { label: "المجانيون",    value: stats && (stats.totalUsers - stats.subscribedUsers), icon: Users },
         ].map(({ label, value, icon: Icon }) => (
           <Card key={label} className="border-border/50 shadow-sm">
             <CardContent className="p-4">
@@ -395,7 +726,7 @@ function UsersTab({ token, onSessionExpired }: { token: string; onSessionExpired
                           <Crown className="w-2.5 h-2.5" />{daysLeft !== null ? `${daysLeft}د` : "✓"}
                         </Badge>
                       ) : (
-                        <span className="text-[11px] font-mono text-muted-foreground">{u.searchCount}/3</span>
+                        <span className="text-[11px] font-mono text-muted-foreground">{u.searchCount}/بحث</span>
                       )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -441,7 +772,7 @@ function UsersTab({ token, onSessionExpired }: { token: string; onSessionExpired
   );
 }
 
-/* ── Admin Dashboard ──────────────────────────────────────────── */
+/* ── Admin Dashboard ─────────────────────────────────────────────────────── */
 function AdminDashboard({ token, onLogout }: { token: string; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>("users");
 
@@ -451,8 +782,10 @@ function AdminDashboard({ token, onLogout }: { token: string; onLogout: () => vo
   };
 
   const TABS: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: "users",    label: "المستخدمون", icon: Users },
-    { id: "services", label: "خدمات OSINT & API Keys", icon: Settings2 },
+    { id: "users",       label: "المستخدمون",     icon: Users },
+    { id: "services",    label: "API Keys & OSINT", icon: Settings2 },
+    { id: "system",      label: "إعدادات النظام",  icon: Sliders },
+    { id: "credentials", label: "بيانات الدخول",   icon: UserCog },
   ];
 
   return (
@@ -466,40 +799,51 @@ function AdminDashboard({ token, onLogout }: { token: string; onLogout: () => vo
               <Shield className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <h1 className="text-lg font-bold">لوحة التحكم</h1>
-              <p className="text-[11px] text-muted-foreground font-mono">LYOSINT Admin Panel</p>
+              <h1 className="text-base font-bold leading-tight">لوحة التحكم</h1>
+              <p className="text-[11px] text-muted-foreground font-mono">LYOSINT Admin</p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleLogout} className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-destructive">
+          <Button variant="ghost" size="sm" onClick={handleLogout}
+            className="h-8 px-3 gap-1.5 text-xs text-muted-foreground hover:text-foreground">
             <LogOut className="w-3.5 h-3.5" /> خروج
           </Button>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-0.5 bg-secondary/40 p-1 rounded-lg border border-border/40 w-fit">
+        <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-lg border border-border/40 flex-wrap">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button key={id} onClick={() => setTab(id)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[13px] font-medium transition-all ${
-                tab === id ? "bg-background shadow-sm text-foreground border border-border/40" : "text-muted-foreground hover:text-foreground"
+              className={`flex-1 min-w-fit flex items-center justify-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium transition-all ${
+                tab === id
+                  ? "bg-background shadow-sm text-foreground border border-border/40"
+                  : "text-muted-foreground hover:text-foreground"
               }`}>
-              <Icon className="w-3.5 h-3.5" /> {label}
+              <Icon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{label}</span>
             </button>
           ))}
         </div>
 
         {/* Tab Content */}
-        {tab === "users" && <UsersTab token={token} onSessionExpired={onLogout} />}
+        {tab === "users" && <UsersTab token={token} onSessionExpired={handleLogout} />}
         {tab === "services" && <ServicesTab token={token} />}
+        {tab === "system" && <SystemConfigTab token={token} />}
+        {tab === "credentials" && <CredentialsTab token={token} onSessionExpired={handleLogout} />}
       </div>
     </div>
   );
 }
 
-/* ── Main Export ──────────────────────────────────────────────── */
+/* ── Root ────────────────────────────────────────────────────────────────── */
 export default function AdminPage() {
   const [token, setToken] = useState<string | null>(() => sessionStorage.getItem(ADMIN_TOKEN_KEY));
+
   const handleLogin = (t: string) => setToken(t);
-  const handleLogout = () => { sessionStorage.removeItem(ADMIN_TOKEN_KEY); setToken(null); };
+  const handleLogout = () => {
+    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    setToken(null);
+  };
+
   if (!token) return <AdminLogin onLogin={handleLogin} />;
   return <AdminDashboard token={token} onLogout={handleLogout} />;
 }

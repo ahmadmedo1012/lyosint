@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { randomUUID, timingSafeEqual } from "crypto";
+import { randomUUID, timingSafeEqual, createHash } from "crypto";
 import { db, usersTable, searchesTable } from "@workspace/db";
 import { eq, desc, count } from "drizzle-orm";
 import { toPublicUser } from "./auth";
@@ -8,29 +8,35 @@ import {
   getAllSettingRows,
   setSetting,
   deleteSetting,
+  getSetting,
   DEFINED_SERVICES,
+  SYSTEM_CONFIG_DEFS,
 } from "../services/settingsService";
 
 const router = Router();
 
-// ─── Admin credentials from env ────────────────────────────────────────────
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME ?? "admin";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "";
+// ─── Admin credentials ──────────────────────────────────────────────────────
+// Loaded fresh each time to support runtime credential changes
+async function getAdminUsername(): Promise<string> {
+  return (await getSetting("sys_admin_username")) ?? process.env.ADMIN_USERNAME ?? "admin";
+}
+async function getAdminPassword(): Promise<string> {
+  return (await getSetting("sys_admin_password")) ?? process.env.ADMIN_PASSWORD ?? "";
+}
 
-// In-memory admin session tokens
+// ─── Admin sessions (in-memory) ─────────────────────────────────────────────
 const adminSessions = new Map<string, { expiresAt: number }>();
 
 function safeCompare(a: string, b: string): boolean {
   try {
-    const ba = Buffer.from(a.padEnd(64));
-    const bb = Buffer.from(b.padEnd(64));
+    const ba = Buffer.from(a.padEnd(128));
+    const bb = Buffer.from(b.padEnd(128));
     return timingSafeEqual(ba, bb) && a.length === b.length;
   } catch {
     return false;
   }
 }
 
-// Cleanup expired sessions hourly
 setInterval(() => {
   const now = Date.now();
   for (const [k, v] of adminSessions) {
@@ -51,17 +57,19 @@ async function requireAdminToken(req: any, res: any, next: any) {
   next();
 }
 
-// ── Auth ───────────────────────────────────────────────────────────────────
+// ── Auth ─────────────────────────────────────────────────────────────────────
 
-router.post("/admin/login", (req, res) => {
-  if (!ADMIN_PASSWORD) {
-    res.status(503).json({ error: "لم يتم تعيين كلمة مرور المسؤول في المتغيرات البيئية" });
+router.post("/admin/login", async (req, res) => {
+  const adminPassword = await getAdminPassword();
+  if (!adminPassword) {
+    res.status(503).json({ error: "لم يتم تعيين كلمة مرور المسؤول — يرجى تعيينها في لوحة التحكم أو المتغيرات البيئية" });
     return;
   }
   const { username, password } = req.body ?? {};
+  const adminUsername = await getAdminUsername();
   if (
-    !safeCompare(String(username ?? ""), ADMIN_USERNAME) ||
-    !safeCompare(String(password ?? ""), ADMIN_PASSWORD)
+    !safeCompare(String(username ?? ""), adminUsername) ||
+    !safeCompare(String(password ?? ""), adminPassword)
   ) {
     logger.warn("Failed admin login attempt");
     res.status(401).json({ error: "بيانات الاعتماد غير صحيحة" });
@@ -75,13 +83,13 @@ router.post("/admin/login", (req, res) => {
 router.post("/admin/logout", requireAdminToken, (req, res) => {
   const token = String(
     req.headers["x-admin-token"] ??
-    req.headers.authorization?.replace("Bearer ", "")
+    req.headers.authorization?.replace("Bearer ", ""),
   );
   adminSessions.delete(token);
   res.json({ ok: true });
 });
 
-// ── Stats ──────────────────────────────────────────────────────────────────
+// ── Stats ────────────────────────────────────────────────────────────────────
 
 router.get("/admin/stats", requireAdminToken, async (req, res) => {
   try {
@@ -96,7 +104,7 @@ router.get("/admin/stats", requireAdminToken, async (req, res) => {
   }
 });
 
-// ── Users ──────────────────────────────────────────────────────────────────
+// ── Users ────────────────────────────────────────────────────────────────────
 
 router.get("/admin/users", requireAdminToken, async (req, res) => {
   try {
@@ -163,9 +171,8 @@ router.delete("/admin/users/:id", requireAdminToken, async (req, res) => {
   }
 });
 
-// ── Settings / API Keys ────────────────────────────────────────────────────
+// ── API Key Settings ──────────────────────────────────────────────────────────
 
-// GET /admin/settings — return defined services + their configuration status
 router.get("/admin/settings", requireAdminToken, async (req, res) => {
   try {
     const rows = await getAllSettingRows();
@@ -174,7 +181,6 @@ router.get("/admin/settings", requireAdminToken, async (req, res) => {
     const services = DEFINED_SERVICES.map((svc) => ({
       ...svc,
       isConfigured: configuredKeys.has(svc.key) && !!configuredKeys.get(svc.key)?.value,
-      // Never return actual key values — only whether they're set
       updatedAt: configuredKeys.get(svc.key)?.updatedAt ?? null,
     }));
 
@@ -185,13 +191,11 @@ router.get("/admin/settings", requireAdminToken, async (req, res) => {
   }
 });
 
-// PUT /admin/settings/:key — set a setting value
 router.put("/admin/settings/:key", requireAdminToken, async (req, res) => {
   try {
     const { key } = req.params;
     const { value } = req.body ?? {};
 
-    // Only allow keys that are in DEFINED_SERVICES
     const allowed = DEFINED_SERVICES.some((s) => s.key === key);
     if (!allowed) { res.status(400).json({ error: "مفتاح غير معروف" }); return; }
 
@@ -208,12 +212,84 @@ router.put("/admin/settings/:key", requireAdminToken, async (req, res) => {
   }
 });
 
-// DELETE /admin/settings/:key
 router.delete("/admin/settings/:key", requireAdminToken, async (req, res) => {
   try {
     await deleteSetting(req.params.key);
     res.json({ ok: true });
   } catch (err) {
+    res.status(500).json({ error: "خطأ في الخادم" });
+  }
+});
+
+// ── System Configuration ──────────────────────────────────────────────────────
+
+router.get("/admin/system-config", requireAdminToken, async (req, res) => {
+  try {
+    const rows = await getAllSettingRows();
+    const storedMap = new Map(rows.map((r) => [r.key, r.value]));
+
+    const config = SYSTEM_CONFIG_DEFS.map((def) => ({
+      key: def.key,
+      name: def.name,
+      description: def.description,
+      type: def.type,
+      value: storedMap.get(def.key) ?? def.defaultValue,
+      defaultValue: def.defaultValue,
+      ...(def.min !== undefined ? { min: def.min } : {}),
+      ...(def.max !== undefined ? { max: def.max } : {}),
+    }));
+
+    res.json({ config });
+  } catch (err) {
+    logger.error(err, "admin/system-config error");
+    res.status(500).json({ error: "خطأ في الخادم" });
+  }
+});
+
+router.put("/admin/system-config/:key", requireAdminToken, async (req, res) => {
+  try {
+    const { key } = req.params;
+    const { value } = req.body ?? {};
+
+    const def = SYSTEM_CONFIG_DEFS.find((d) => d.key === key);
+    if (!def) { res.status(400).json({ error: "مفتاح تكوين غير معروف" }); return; }
+
+    if (value === "" || value == null) {
+      await deleteSetting(key);
+    } else {
+      await setSetting(key, String(value));
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error(err, "admin/system-config PUT error");
+    res.status(500).json({ error: "خطأ في الخادم" });
+  }
+});
+
+// ── Admin Credentials Management ──────────────────────────────────────────────
+
+router.post("/admin/change-credentials", requireAdminToken, async (req, res) => {
+  try {
+    const { currentPassword, newUsername, newPassword } = req.body ?? {};
+
+    const adminPassword = await getAdminPassword();
+    if (!adminPassword || !safeCompare(String(currentPassword ?? ""), adminPassword)) {
+      res.status(401).json({ error: "كلمة المرور الحالية غير صحيحة" });
+      return;
+    }
+
+    if (newUsername && newUsername.trim().length >= 3) {
+      await setSetting("sys_admin_username", newUsername.trim());
+    }
+    if (newPassword && newPassword.length >= 6) {
+      await setSetting("sys_admin_password", newPassword);
+      // Invalidate all existing admin sessions after password change
+      adminSessions.clear();
+    }
+
+    res.json({ ok: true, message: "تم تحديث بيانات الاعتماد بنجاح" });
+  } catch (err) {
+    logger.error(err, "admin/change-credentials error");
     res.status(500).json({ error: "خطأ في الخادم" });
   }
 });
