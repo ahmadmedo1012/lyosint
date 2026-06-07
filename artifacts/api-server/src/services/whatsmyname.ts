@@ -181,14 +181,28 @@ async function mapWithConcurrency<T, R>(
   items: T[],
   concurrency: number,
   fn: (item: T) => Promise<R>,
+  abortSignal?: AbortSignal,
 ): Promise<R[]> {
-  const results: R[] = new Array(items.length);
+  const results: (R | undefined)[] = new Array(items.length);
   let idx = 0;
+  let aborted = false;
+
+  const onAbort = () => { aborted = true; };
+  if (abortSignal) {
+    if (abortSignal.aborted) aborted = true;
+    else abortSignal.addEventListener("abort", onAbort, { once: true });
+  }
+
   async function worker() {
     while (true) {
+      if (aborted) return;
       const i = idx++;
       if (i >= items.length) return;
-      results[i] = await fn(items[i]);
+      try {
+        results[i] = await fn(items[i]);
+      } catch {
+        results[i] = undefined;
+      }
     }
   }
   const workers = Array.from(
@@ -196,7 +210,8 @@ async function mapWithConcurrency<T, R>(
     () => worker(),
   );
   await Promise.all(workers);
-  return results;
+  if (abortSignal) abortSignal.removeEventListener("abort", onAbort);
+  return results as R[];
 }
 
 export async function checkWhatsMyName(
@@ -225,20 +240,14 @@ export async function checkWhatsMyName(
   const globalController = new AbortController();
   const globalTimeout = setTimeout(() => globalController.abort(), globalTimeoutMs);
 
-  // Hard wall-clock: if mapWithConcurrency doesn't settle in time, return what we have
-  const concurrencyPromise = mapWithConcurrency(sites, concurrency, (s) =>
-    checkOneSite(s, username, perSiteTimeoutMs, globalController.signal),
+  // mapWithConcurrency respects the abort signal — workers stop dispatching new items
+  // and the function returns once in-flight requests complete
+  const settled = await mapWithConcurrency(
+    sites,
+    concurrency,
+    (s) => checkOneSite(s, username, perSiteTimeoutMs, globalController.signal),
+    globalController.signal,
   ).finally(() => clearTimeout(globalTimeout));
-
-  const hardTimeout = new Promise<SiteResult[]>((resolve) => {
-    setTimeout(() => {
-      globalController.abort();
-      // Give workers a brief window to finish in-flight aborts, then resolve with partial
-      setTimeout(() => resolve([]), 2000);
-    }, globalTimeoutMs);
-  });
-
-  const settled = await Promise.race([concurrencyPromise, hardTimeout]).catch(() => []);
 
   return settled.map(({ site, found, httpStatus, responseTimeMs, error }) => {
     const detectionMethod: "status_code" | "message" =
