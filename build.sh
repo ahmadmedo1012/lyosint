@@ -1,9 +1,12 @@
 #!/bin/sh
 set -e
-echo "Starting build at $(date)"
+echo "=== Starting build ==="
+date
 node --version
 pnpm --version
+echo "=== Installing dependencies ==="
 pnpm install --frozen-lockfile=false
-echo "Install done at $(date)"
+echo "=== Building ==="
 pnpm run build
-echo "Build done at $(date)"
+echo "=== Build complete ==="
+date
