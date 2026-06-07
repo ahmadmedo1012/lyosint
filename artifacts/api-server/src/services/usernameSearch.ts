@@ -5,25 +5,25 @@ import { getGitHubProfile } from "./githubOsint";
 import { checkHIBP, lookupTwitchUser, checkLeakCheck, checkEmailRep, crtShLookup } from "./freeApis";
 import { getSetting } from "./settingsService";
 import { checkWhatsMyName, wmnResultToPlatformResult, type WMNResult } from "./whatsmyname";
-import { runMaigret, isMaigretAvailable, ensureMaigretReady, type MaigretProfile } from "./maigret";
+import { runMaigret, isMaigretAvailable, startBackgroundInstall, type MaigretProfile } from "./maigret";
+
+// Start background install of maigret on module load
+startBackgroundInstall();
 
 export async function runUsernameSearch(id: string, username: string): Promise<void> {
   try {
     await db.update(searchesTable).set({ status: "running", progress: 5 }).where(eq(searchesTable.id, id));
 
     // Run httpChecker, Twitch, WhatsMyName, and Maigret in parallel
-    // Maigret is the slow path (Python subprocess + 500 sites + 45 priority sites @ 8s timeout ≈ 30-90s)
-    // First-run may need to install maigret via pip (60-180s) — kicked off in parallel
+    // Maigret is the slow path (Python subprocess + 500 sites + priority sites, ~30-120s)
+    // Background install of maigret started at module load (startBackgroundInstall)
     const [platformResults, twitchData, wmnResultsRaw, maigretResult] = await Promise.allSettled([
       checkUsername(username),
       lookupTwitchUser(username),
       checkWhatsMyName(username, { concurrency: 20, perSiteTimeoutMs: 5000, globalTimeoutMs: 30000 }),
-      (async () => {
-        if (!isMaigretAvailable()) return { username, found: [], totalFound: 0, elapsedSeconds: 0 };
-        const ready = await ensureMaigretReady();
-        if (!ready) return { username, found: [], totalFound: 0, elapsedSeconds: 0 };
-        return runMaigret(username, { timeoutMs: 8000, maxConnections: 30, maxSites: 500 });
-      })(),
+      isMaigretAvailable()
+        ? runMaigret(username, { timeoutMs: 8000, maxConnections: 30, maxSites: 500 })
+        : Promise.resolve({ username, found: [], totalFound: 0, elapsedSeconds: 0 }),
     ]);
 
     const results: PlatformResult[] = platformResults.status === "fulfilled" ? platformResults.value : [];

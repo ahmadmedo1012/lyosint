@@ -1,4 +1,4 @@
-import { spawn, execSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
@@ -16,10 +16,6 @@ import { dirname, resolve } from "node:path";
  *   1. process.env.MAIGRET_PYTHON
  *   2. /usr/local/bin/python3, /usr/bin/python3 (Docker image)
  *   3. "python3" / "python" on PATH (Render native runtime, system Ubuntu)
- *
- * Maigret install order:
- *   1. If `import maigret` works → use it
- *   2. Otherwise `pip install --user maigret==0.6.1` (cached for next call)
  */
 
 export interface MaigretProfile {
@@ -70,7 +66,6 @@ let maigretInstallPromise: Promise<boolean> | null = null;
 
 function getPythonPath(): string {
   if (cachedPythonPath) return cachedPythonPath;
-  // Look for python3 in PATH, fall back to common locations
   const candidates = [
     process.env.MAIGRET_PYTHON,
     "/usr/local/bin/python3",
@@ -83,7 +78,6 @@ function getPythonPath(): string {
     if (c.startsWith("/")) {
       if (existsSync(c)) { cachedPythonPath = c; return c; }
     } else {
-      // In PATH — trust it
       cachedPythonPath = c;
       return c;
     }
@@ -92,75 +86,144 @@ function getPythonPath(): string {
   return cachedPythonPath;
 }
 
+/**
+ * Promise-based async check if a Python module is importable.
+ * Never blocks the event loop — no execSync.
+ */
+async function checkModuleAvailable(python: string, module: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const proc = spawn(python, ["-c", `import ${module}`], {
+      stdio: "ignore",
+    });
+    const timer = setTimeout(() => {
+      proc.kill();
+      resolve(false);
+    }, 15000);
+    proc.on("error", () => { clearTimeout(timer); resolve(false); });
+    proc.on("close", (code) => {
+      clearTimeout(timer);
+      resolve(code === 0);
+    });
+  });
+}
+
+/**
+ * Async pip install a package — non-blocking, uses spawn.
+ */
+async function pipInstall(python: string, pkg: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    // First try --user
+    const args = ["-m", "pip", "install", "--quiet", pkg];
+    const proc = spawn(python, [...args, "--user"], {
+      stdio: ["ignore", "inherit", "inherit"],
+      timeout: 180000,
+    });
+    const timer = setTimeout(() => {
+      proc.kill();
+      resolve(false);
+    }, 180000);
+    proc.on("error", () => { clearTimeout(timer); resolve(false); });
+    proc.on("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0) { resolve(true); return; }
+      // Retry with --break-system-packages
+      const proc2 = spawn(python, [...args, "--break-system-packages"], {
+        stdio: ["ignore", "inherit", "inherit"],
+        timeout: 180000,
+      });
+      const timer2 = setTimeout(() => { proc2.kill(); resolve(false); }, 180000);
+      proc2.on("error", () => { clearTimeout(timer2); resolve(false); });
+      proc2.on("close", (code2) => {
+        clearTimeout(timer2);
+        resolve(code2 === 0);
+      });
+    });
+  });
+}
+
+/**
+ * One-time background install of maigret.
+ * Called on first `runMaigret` — subsequent calls use cached result.
+ */
 async function ensureMaigretInstalled(python: string): Promise<boolean> {
-  // Check if maigret is importable
-  try {
-    execSync(`${python} -c "import maigret"`, { stdio: "ignore", timeout: 10000 });
-    return true;
-  } catch {}
+  // Quick check — already imported?
+  const available = await checkModuleAvailable(python, "maigret");
+  if (available) return true;
 
   if (maigretInstallPromise) return maigretInstallPromise;
 
   maigretInstallPromise = (async () => {
-    try {
-      console.log("[maigret] installing maigret==0.6.1 via pip (one-time, ~60s)...");
-      const userFlag = (() => {
-        try {
-          // On Render Ubuntu, --user works. On system Python it might be PEP 668 protected.
-          execSync(`${python} -m pip --version`, { stdio: "ignore", timeout: 5000 });
-          return "";
-        } catch {
-          return "--break-system-packages";
-        }
-      })();
-      // Try --user first (Render Ubuntu), fall back to --break-system-packages
-      const flags = userFlag || "--user";
-      execSync(
-        `${python} -m pip install --quiet ${flags} "maigret==0.6.1"`,
-        { stdio: ["ignore", "inherit", "inherit"], timeout: 180000 },
-      );
-      // Verify
-      execSync(`${python} -c "import maigret"`, { stdio: "ignore", timeout: 10000 });
-      console.log("[maigret] install complete");
-      return true;
-    } catch (err) {
-      console.error("[maigret] install failed:", (err as Error).message);
-      return false;
-    } finally {
-      maigretInstallAttempted = true;
+    console.log("[maigret] installing maigret==0.6.1 (one-time, ~60-180s)...");
+    const ok = await pipInstall(python, "maigret==0.6.1");
+    if (ok) {
+      const verified = await checkModuleAvailable(python, "maigret");
+      if (verified) {
+        console.log("[maigret] install complete");
+        return true;
+      }
     }
+    console.error("[maigret] install failed");
+    return false;
   })();
 
   return maigretInstallPromise;
 }
 
+/**
+ * Start background installation of maigret on module load.
+ * This runs parallel to the first request — by the time the first
+ * search completes (httpChecker+WMN, ~30s), maigret may be ready.
+ */
+let backgroundInstallStarted = false;
+export function startBackgroundInstall(): void {
+  if (backgroundInstallStarted || !isRunnerPresent()) return;
+  backgroundInstallStarted = true;
+  const python = getPythonPath();
+  // Fire-and-forget
+  ensureMaigretInstalled(python).then((ok) => {
+    if (ok) console.log("[maigret] background install ready");
+  }).catch(() => {});
+}
+
+function isRunnerPresent(): boolean {
+  return existsSync(getRunnerPath());
+}
+
 function getRunnerPath(): string {
   if (cachedRunnerPath) return cachedRunnerPath;
-  // Source: src/services/maigret.ts -> ../../../scripts/maigret_runner.py
-  // Bundled: dist/index.mjs -> ../scripts/maigret_runner.py (copied by build)
   const here = dirname(fileURLToPath(import.meta.url));
   const candidates = [
-    resolve(here, "../scripts/maigret_runner.py"),  // bundled
-    resolve(here, "../../../scripts/maigret_runner.py"),  // source layout
+    resolve(here, "../scripts/maigret_runner.py"),
+    resolve(here, "../../../scripts/maigret_runner.py"),
     resolve(here, "../../scripts/maigret_runner.py"),
   ];
   for (const c of candidates) {
     if (existsSync(c)) { cachedRunnerPath = c; return c; }
   }
-  // Default to bundled path (will error visibly if missing)
   cachedRunnerPath = candidates[0];
   return cachedRunnerPath;
 }
 
+/**
+ * Returns true if the runner script is bundled in dist/.
+ * Does NOT check if Python or maigret are installed — that happens
+ * at runtime in ensureMaigretInstalled (async, non-blocking).
+ */
 export function isMaigretAvailable(): boolean {
-  // Available if the runner script is bundled in dist/
-  // (Python + maigret itself may need runtime install on native runtimes)
-  return existsSync(getRunnerPath());
+  return isRunnerPresent();
 }
 
+/**
+ * Returns true if maigret is fully ready (runner + Python + maigret package).
+ * Non-blocking — on first call it starts background install.
+ */
 export async function ensureMaigretReady(): Promise<boolean> {
-  if (!isMaigretAvailable()) return false;
+  if (!isRunnerPresent()) return false;
   const python = getPythonPath();
+  // Fast check — existing cached install
+  const ok = await checkModuleAvailable(python, "maigret");
+  if (ok) return true;
+  // Start install (or wait for already-started install)
   return ensureMaigretInstalled(python);
 }
 
@@ -176,10 +239,11 @@ export async function runMaigret(
     throw new Error(`maigret_runner.py not found at ${runnerPath}`);
   }
   const python = getPythonPath();
-  // Best-effort install (no-op if already present, 60-180s on first call)
+  // Check if maigret is usable (install if needed)
   const ok = await ensureMaigretInstalled(python);
   if (!ok) {
-    throw new Error("maigret python package not available and install failed");
+    // Maigret not available — return empty result instead of crashing
+    return { username, found: [], totalFound: 0, elapsedSeconds: 0 };
   }
 
   const config = {
