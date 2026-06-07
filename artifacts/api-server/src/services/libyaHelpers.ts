@@ -16,9 +16,15 @@ export const LIBYA_REGION_PREFIXES: Record<string, string> = {
   "096": "Benghazi Region",
 };
 
-export const LIBYA_SOCIAL_PLATFORMS = [
-  "facebook", "instagram", "twitter", "tiktok", "telegram",
-  "youtube", "snapchat", "linkedin",
+export const LIBYA_SOCIAL_PLATFORMS: Array<{ name: string; searchUrl: string }> = [
+  { name: "Facebook ليبيا",    searchUrl: "https://www.facebook.com/search/people?q={q}&filters=eyJyZWdpb25fa2V5IjoieyBcIm5hbWVcIjogXCJyZWdpb25zXCIsIFwiYXJnc1wiOiBcIjEwNTA2NjdcIiB9In0%3D" },
+  { name: "Google ليبيا",      searchUrl: "https://www.google.com/search?q={q}+Libya" },
+  { name: "Instagram ليبيا",   searchUrl: "https://www.instagram.com/explore/search/?query={q}" },
+  { name: "TikTok ليبيا",      searchUrl: "https://www.tiktok.com/search/user?q={q}" },
+  { name: "Telegram Search",   searchUrl: "https://t.me/s/{q}" },
+  { name: "Twitter / X ليبيا", searchUrl: "https://x.com/search?q={q}+Libya&f=user" },
+  { name: "LinkedIn ليبيا",    searchUrl: "https://www.linkedin.com/search/results/people/?keywords={q}&geoUrn=%5B%22104827465%22%5D" },
+  { name: "YouTube ليبيا",     searchUrl: "https://www.youtube.com/results?search_query={q}" },
 ];
 
 export function normalizeLibyaPhone(raw: string): string {
@@ -58,7 +64,7 @@ export function generateNameVariants(arabicOrEnglishName: string): string[] {
       "الشريف": ["Sherif", "Elsherif", "Alshareef"],
       "الطرابلسي": ["Trabelsi", "Eltarabelsi"],
       "الفيتوري": ["Elfitori", "Fitori"],
-      "الورفلي": ["Werفali", "Alwarfali"],
+      "الورفلي": ["Warfali", "Alwarfali"],
     };
     const englishParts = parts.map((p) => translitMap[p]?.[0] ?? p);
     variants.push(englishParts.join(" "));

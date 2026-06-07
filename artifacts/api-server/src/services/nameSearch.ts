@@ -1,76 +1,123 @@
 import { db, searchesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { libyaCarrierFromPhone, libyaRegionFromPhone, normalizeLibyaPhone, generateNameVariants, LIBYA_SOCIAL_PLATFORMS } from "./libyaHelpers";
+import { generateNameVariants, LIBYA_SOCIAL_PLATFORMS } from "./libyaHelpers";
+import { searchGitHubByName } from "./githubOsint";
+import { hunterEmailFinder } from "./freeApis";
 
-const SEARCH_DELAY_MS = 120;
-
-async function updateProgress(id: string, progress: number, platformsSearched: number) {
-  await db
-    .update(searchesTable)
-    .set({ status: "running", progress, platformsSearched })
-    .where(eq(searchesTable.id, id));
-}
+const STEP_MS = 150;
 
 export async function runNameSearch(id: string, name: string): Promise<void> {
   try {
-    await db.update(searchesTable).set({ status: "running" }).where(eq(searchesTable.id, id));
+    await db.update(searchesTable).set({ status: "running", progress: 5 }).where(eq(searchesTable.id, id));
 
     const variants = generateNameVariants(name);
-    const total = 40;
-    let searched = 0;
+    const slug = name.trim().toLowerCase()
+      .replace(/\s+/g, ".")
+      .replace(/[^\w.]/g, "");
+    const slugDash = slug.replace(/\./g, "-");
+    const slugUnder = slug.replace(/\./g, "_");
 
-    const step = async (n: number) => {
-      searched += n;
-      await updateProgress(id, Math.min(Math.round((searched / total) * 100), 95), searched);
-      await sleep(SEARCH_DELAY_MS);
+    await sleep(STEP_MS);
+    await db.update(searchesTable).set({ progress: 15 }).where(eq(searchesTable.id, id));
+
+    // ── Real GitHub name search ───────────────────────────────────────────────
+    const githubUsers = await searchGitHubByName(name).catch(() => []);
+
+    await sleep(STEP_MS);
+    await db.update(searchesTable).set({ progress: 30 }).where(eq(searchesTable.id, id));
+
+    // ── Hunter.io email search ─────────────────────────────────────────────────
+    const discoveredEmails = await hunterEmailFinder(name).catch(() => null);
+
+    await sleep(STEP_MS);
+    await db.update(searchesTable).set({ progress: 48 }).where(eq(searchesTable.id, id));
+
+    // ── Generate investigative search URLs ────────────────────────────────────
+    const nameEncoded = encodeURIComponent(name);
+    const nameAr = name.trim();
+
+    const searchEngineLinks = [
+      { label: "Google — البحث الشامل", url: `https://www.google.com/search?q=${nameEncoded}+Libya` },
+      { label: "Google — صور", url: `https://www.google.com/search?q=${nameEncoded}&tbm=isch` },
+      { label: "Bing", url: `https://www.bing.com/search?q=${nameEncoded}+Libya` },
+      { label: "DuckDuckGo", url: `https://duckduckgo.com/?q=${nameEncoded}+Libya` },
+    ];
+
+    // ── Social media profile links (manual check) ─────────────────────────────
+    const socialMedia: Record<string, string[]> = {
+      facebook: [
+        `https://www.facebook.com/search/people?q=${nameEncoded}`,
+        `https://facebook.com/${slug}`,
+      ],
+      twitter: [`https://x.com/search?q=${nameEncoded}&f=user`],
+      instagram: [`https://www.instagram.com/${slug}/`],
+      linkedin: [
+        `https://www.linkedin.com/search/results/people/?keywords=${nameEncoded}`,
+        `https://linkedin.com/in/${slugDash}`,
+      ],
+      tiktok: [`https://www.tiktok.com/search/user?q=${nameEncoded}`],
+      telegram: [`https://t.me/${slugUnder}`],
+      youtube: [`https://www.youtube.com/results?search_query=${nameEncoded}`],
     };
 
-    await step(2);
-    const phoneNumbers = simulatePhoneDiscovery(name);
-    await step(3);
-    const addresses = simulateAddressDiscovery(name);
-    await step(3);
-    const associatedNames = simulateFamilyNames(name);
-    await step(4);
-    const socialMedia = simulateSocialMedia(name);
-    await step(5);
-    const sources: string[] = ["phonelibya.ly", "libyayponline.com", "facebook.com"];
-    if (phoneNumbers.length) sources.push("truecaller");
-    await step(5);
+    await sleep(STEP_MS);
+    await db.update(searchesTable).set({ progress: 62 }).where(eq(searchesTable.id, id));
 
-    const carrier = phoneNumbers.length > 0 ? libyaCarrierFromPhone(phoneNumbers[0]) : null;
-    const regionHint = phoneNumbers.length > 0 ? libyaRegionFromPhone(phoneNumbers[0]) : "Libya";
+    // ── Libyan-specific platforms ──────────────────────────────────────────────
+    const libyanPlatforms = LIBYA_SOCIAL_PLATFORMS.map((p) => ({
+      name: p.name,
+      url: p.searchUrl.replace("{q}", nameEncoded),
+    }));
 
-    for (let i = 0; i < 18; i++) {
-      await step(1);
-    }
+    await sleep(STEP_MS);
+    await db.update(searchesTable).set({ progress: 78 }).where(eq(searchesTable.id, id));
+
+    // ── Username variants for further OSINT ───────────────────────────────────
+    const usernameVariants = [
+      slug, slugDash, slugUnder,
+      ...variants.map((v) =>
+        v.toLowerCase().replace(/\s+/g, ".").replace(/[^\w.]/g, "")
+      ),
+    ].filter((v, i, arr) => v && arr.indexOf(v) === i).slice(0, 8);
+
+    await sleep(STEP_MS);
+    await db.update(searchesTable).set({ progress: 90 }).where(eq(searchesTable.id, id));
+
+    // ── Confidence ────────────────────────────────────────────────────────────
+    const confidence = Math.round(Math.min(
+      0.25 + githubUsers.length * 0.12 + (discoveredEmails?.length ?? 0) * 0.1,
+      0.82,
+    ) * 100) / 100;
+
+    const socialCount = Object.values(socialMedia).flat().length;
+    const resultsCount = githubUsers.length + (discoveredEmails?.length ?? 0) + socialCount;
 
     const nameResult = {
       fullName: name,
       possibleVariations: variants,
-      phoneNumbers,
-      carrier,
-      regionHint,
+      usernameVariants,
+      // Real results
+      githubUsers,
+      discoveredEmails: discoveredEmails ?? [],
+      // Search links
+      searchEngineLinks,
       socialMedia,
-      addresses,
-      associatedNames,
-      sources,
+      libyanPlatforms,
+      // Meta
+      sources: [
+        "github.com/search",
+        ...(discoveredEmails ? ["hunter.io"] : []),
+        "google.com", "facebook.com", "linkedin.com",
+      ],
+      dataNote: "روابط وسائل التواصل للفحص اليدوي — نتائج GitHub مؤكدة من API",
     };
 
-    const confidence = calcConfidence({ phones: phoneNumbers.length, socials: Object.values(socialMedia).flat().length, addresses: addresses.length });
-
-    await db
-      .update(searchesTable)
-      .set({
-        status: "completed",
-        progress: 100,
-        platformsSearched: total,
-        nameResult,
-        confidenceScore: confidence,
-        resultsCount: phoneNumbers.length + Object.values(socialMedia).flat().length + addresses.length,
-        completedAt: new Date(),
-      })
-      .where(eq(searchesTable.id, id));
+    await db.update(searchesTable).set({
+      status: "completed", progress: 100,
+      platformsSearched: 8 + libyanPlatforms.length,
+      nameResult, confidenceScore: confidence,
+      resultsCount, completedAt: new Date(),
+    }).where(eq(searchesTable.id, id));
   } catch {
     await db.update(searchesTable).set({ status: "failed" }).where(eq(searchesTable.id, id));
   }
@@ -78,62 +125,4 @@ export async function runNameSearch(id: string, name: string): Promise<void> {
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
-}
-
-function calcConfidence({ phones, socials, addresses }: { phones: number; socials: number; addresses: number }) {
-  const score = Math.min(0.45 + phones * 0.1 + socials * 0.05 + addresses * 0.08, 0.97);
-  return Math.round(score * 100) / 100;
-}
-
-function simulatePhoneDiscovery(name: string): string[] {
-  const seed = hashCode(name);
-  const count = (seed % 3);
-  const prefixes = ["0912", "0913", "0921", "0922", "0924", "0925", "0918"];
-  const phones: string[] = [];
-  for (let i = 0; i < count; i++) {
-    const prefix = prefixes[(seed + i) % prefixes.length];
-    const suffix = String(Math.abs((seed * (i + 7)) % 1000000)).padStart(6, "0");
-    phones.push(normalizeLibyaPhone(prefix + suffix));
-  }
-  return phones;
-}
-
-function simulateAddressDiscovery(name: string): string[] {
-  const seed = hashCode(name);
-  const libyanCities = ["Tripoli", "Benghazi", "Misrata", "Zawiya", "Derna", "Sabha", "Tobruk", "Zintan", "Gharyan"];
-  const districts = ["سوق الجمعة", "الدريبي", "السياحية", "بن عاشور", "عين زارة", "أبو سليم"];
-  if (seed % 3 === 0) return [];
-  const city = libyanCities[seed % libyanCities.length];
-  const district = districts[(seed * 3) % districts.length];
-  return [`${city}، ${district}`];
-}
-
-function simulateFamilyNames(name: string): string[] {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length < 2) return [];
-  const familyName = parts[parts.length - 1];
-  const firstNames = ["محمد", "أحمد", "فاطمة", "عائشة", "خديجة", "علي", "Omar", "Sara"];
-  const seed = hashCode(name);
-  const count = 1 + (seed % 2);
-  return Array.from({ length: count }, (_, i) => `${firstNames[(seed + i) % firstNames.length]} ${familyName}`);
-}
-
-function simulateSocialMedia(name: string): Record<string, string[]> {
-  const seed = hashCode(name);
-  const slug = name.toLowerCase().replace(/\s+/g, ".").replace(/[^\w.]/g, "");
-  const results: Record<string, string[]> = { facebook: [], telegram: [], twitter: [], instagram: [], linkedin: [], tiktok: [] };
-  if (seed % 2 === 0) results.facebook.push(`https://facebook.com/${slug}`);
-  if (seed % 3 === 0) results.telegram.push(`https://t.me/${slug.replace(/\./g, "_")}`);
-  if (seed % 5 === 0) results.twitter.push(`https://x.com/${slug.replace(/\./g, "_")}_LY`);
-  if (seed % 4 === 0) results.instagram.push(`https://instagram.com/${slug}`);
-  if (seed % 7 === 0) results.linkedin.push(`https://linkedin.com/in/${slug.replace(/\./g, "-")}`);
-  return results;
-}
-
-function hashCode(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) {
-    h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h);
 }

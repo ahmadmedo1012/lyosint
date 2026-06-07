@@ -22,7 +22,12 @@ const queryClient = new QueryClient({
 
 function AuthGate() {
   const { user, loading } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+
+  // Admin panel is completely independent — no user auth needed
+  if (location === "/admin" || location.startsWith("/admin/")) {
+    return <AdminPage />;
+  }
 
   if (loading) {
     return (
@@ -52,7 +57,6 @@ function AuthGate() {
         <Route path="/platforms" component={PlatformsPage} />
         <Route path="/history" component={HistoryPage} />
         <Route path="/account" component={AccountPage} />
-        <Route path="/admin" component={AdminPage} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

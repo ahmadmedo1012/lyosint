@@ -1,9 +1,15 @@
 import { Router } from "express";
-import { createHmac, randomUUID, timingSafeEqual } from "crypto";
+import { randomUUID, timingSafeEqual } from "crypto";
 import { db, usersTable, searchesTable } from "@workspace/db";
 import { eq, desc, count } from "drizzle-orm";
 import { toPublicUser } from "./auth";
 import { logger } from "../lib/logger";
+import {
+  getAllSettingRows,
+  setSetting,
+  deleteSetting,
+  DEFINED_SERVICES,
+} from "../services/settingsService";
 
 const router = Router();
 
@@ -11,7 +17,7 @@ const router = Router();
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME ?? "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "";
 
-// In-memory admin session tokens (cleared on server restart intentionally)
+// In-memory admin session tokens
 const adminSessions = new Map<string, { expiresAt: number }>();
 
 function safeCompare(a: string, b: string): boolean {
@@ -24,7 +30,7 @@ function safeCompare(a: string, b: string): boolean {
   }
 }
 
-// Cleanup expired sessions every hour
+// Cleanup expired sessions hourly
 setInterval(() => {
   const now = Date.now();
   for (const [k, v] of adminSessions) {
@@ -33,7 +39,9 @@ setInterval(() => {
 }, 60 * 60 * 1000);
 
 async function requireAdminToken(req: any, res: any, next: any) {
-  const token = req.headers["x-admin-token"] ?? req.headers.authorization?.replace("Bearer ", "");
+  const token =
+    req.headers["x-admin-token"] ??
+    req.headers.authorization?.replace("Bearer ", "");
   if (!token) { res.status(401).json({ error: "غير مصرح" }); return; }
   const session = adminSessions.get(String(token));
   if (!session || session.expiresAt < Date.now()) {
@@ -43,10 +51,11 @@ async function requireAdminToken(req: any, res: any, next: any) {
   next();
 }
 
-// POST /admin/login — username + password → admin token
+// ── Auth ───────────────────────────────────────────────────────────────────
+
 router.post("/admin/login", (req, res) => {
   if (!ADMIN_PASSWORD) {
-    res.status(503).json({ error: "لم يتم تعيين كلمة مرور المسؤول" });
+    res.status(503).json({ error: "لم يتم تعيين كلمة مرور المسؤول في المتغيرات البيئية" });
     return;
   }
   const { username, password } = req.body ?? {};
@@ -59,19 +68,21 @@ router.post("/admin/login", (req, res) => {
     return;
   }
   const token = randomUUID();
-  // 8 hour session
   adminSessions.set(token, { expiresAt: Date.now() + 8 * 60 * 60 * 1000 });
   res.json({ token });
 });
 
-// POST /admin/logout
 router.post("/admin/logout", requireAdminToken, (req, res) => {
-  const token = String(req.headers["x-admin-token"] ?? req.headers.authorization?.replace("Bearer ", ""));
+  const token = String(
+    req.headers["x-admin-token"] ??
+    req.headers.authorization?.replace("Bearer ", "")
+  );
   adminSessions.delete(token);
   res.json({ ok: true });
 });
 
-// GET /admin/stats
+// ── Stats ──────────────────────────────────────────────────────────────────
+
 router.get("/admin/stats", requireAdminToken, async (req, res) => {
   try {
     const [{ total: totalUsers }] = await db.select({ total: count() }).from(usersTable);
@@ -85,7 +96,8 @@ router.get("/admin/stats", requireAdminToken, async (req, res) => {
   }
 });
 
-// GET /admin/users
+// ── Users ──────────────────────────────────────────────────────────────────
+
 router.get("/admin/users", requireAdminToken, async (req, res) => {
   try {
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
@@ -100,12 +112,12 @@ router.get("/admin/users", requireAdminToken, async (req, res) => {
   }
 });
 
-// POST /admin/users/:id/subscribe
 router.post("/admin/users/:id/subscribe", requireAdminToken, async (req, res) => {
   try {
     const months = Math.max(1, parseInt(String(req.body?.months ?? "1"), 10));
     const expiry = new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000);
-    const [updated] = await db.update(usersTable)
+    const [updated] = await db
+      .update(usersTable)
       .set({ isSubscribed: true, subscribedAt: new Date(), subscriptionExpiry: expiry, updatedAt: new Date() })
       .where(eq(usersTable.id, req.params.id)).returning();
     if (!updated) { res.status(404).json({ error: "المستخدم غير موجود" }); return; }
@@ -116,41 +128,92 @@ router.post("/admin/users/:id/subscribe", requireAdminToken, async (req, res) =>
   }
 });
 
-// POST /admin/users/:id/unsubscribe
 router.post("/admin/users/:id/unsubscribe", requireAdminToken, async (req, res) => {
   try {
-    const [updated] = await db.update(usersTable)
+    const [updated] = await db
+      .update(usersTable)
       .set({ isSubscribed: false, subscriptionExpiry: null, updatedAt: new Date() })
       .where(eq(usersTable.id, req.params.id)).returning();
     if (!updated) { res.status(404).json({ error: "المستخدم غير موجود" }); return; }
     res.json({ ok: true, user: toPublicUser(updated) });
   } catch (err) {
-    logger.error(err, "admin/unsubscribe error");
     res.status(500).json({ error: "خطأ في الخادم" });
   }
 });
 
-// POST /admin/users/:id/reset-quota
 router.post("/admin/users/:id/reset-quota", requireAdminToken, async (req, res) => {
   try {
-    const [updated] = await db.update(usersTable)
+    const [updated] = await db
+      .update(usersTable)
       .set({ searchCount: 0, updatedAt: new Date() })
       .where(eq(usersTable.id, req.params.id)).returning();
     if (!updated) { res.status(404).json({ error: "المستخدم غير موجود" }); return; }
     res.json({ ok: true, user: toPublicUser(updated) });
   } catch (err) {
-    logger.error(err, "admin/reset-quota error");
     res.status(500).json({ error: "خطأ في الخادم" });
   }
 });
 
-// DELETE /admin/users/:id
 router.delete("/admin/users/:id", requireAdminToken, async (req, res) => {
   try {
     await db.delete(usersTable).where(eq(usersTable.id, req.params.id));
     res.json({ ok: true });
   } catch (err) {
-    logger.error(err, "admin/delete user error");
+    res.status(500).json({ error: "خطأ في الخادم" });
+  }
+});
+
+// ── Settings / API Keys ────────────────────────────────────────────────────
+
+// GET /admin/settings — return defined services + their configuration status
+router.get("/admin/settings", requireAdminToken, async (req, res) => {
+  try {
+    const rows = await getAllSettingRows();
+    const configuredKeys = new Map(rows.map((r) => [r.key, r]));
+
+    const services = DEFINED_SERVICES.map((svc) => ({
+      ...svc,
+      isConfigured: configuredKeys.has(svc.key) && !!configuredKeys.get(svc.key)?.value,
+      // Never return actual key values — only whether they're set
+      updatedAt: configuredKeys.get(svc.key)?.updatedAt ?? null,
+    }));
+
+    res.json({ services });
+  } catch (err) {
+    logger.error(err, "admin/settings error");
+    res.status(500).json({ error: "خطأ في الخادم" });
+  }
+});
+
+// PUT /admin/settings/:key — set a setting value
+router.put("/admin/settings/:key", requireAdminToken, async (req, res) => {
+  try {
+    const { key } = req.params;
+    const { value } = req.body ?? {};
+
+    // Only allow keys that are in DEFINED_SERVICES
+    const allowed = DEFINED_SERVICES.some((s) => s.key === key);
+    if (!allowed) { res.status(400).json({ error: "مفتاح غير معروف" }); return; }
+
+    if (value === "" || value == null) {
+      await deleteSetting(key);
+      res.json({ ok: true, configured: false });
+    } else {
+      await setSetting(key, String(value));
+      res.json({ ok: true, configured: true });
+    }
+  } catch (err) {
+    logger.error(err, "admin/settings PUT error");
+    res.status(500).json({ error: "خطأ في الخادم" });
+  }
+});
+
+// DELETE /admin/settings/:key
+router.delete("/admin/settings/:key", requireAdminToken, async (req, res) => {
+  try {
+    await deleteSetting(req.params.key);
+    res.json({ ok: true });
+  } catch (err) {
     res.status(500).json({ error: "خطأ في الخادم" });
   }
 });

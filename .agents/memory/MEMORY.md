@@ -1,0 +1,3 @@
+- [Admin panel routing](admin-panel-routing.md) — /admin must be intercepted BEFORE AuthGate in App.tsx, not as a nested route inside it.
+- [Real HTTP OSINT architecture](osint-real-checks.md) — username search now uses real HTTP checks (Sherlock-style) for 9+ platforms + manual links for blocked ones.
+- [Settings/API Keys storage](settings-storage.md) — API keys stored in `settings` DB table, managed via admin panel, never exposed in API responses.
