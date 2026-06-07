@@ -9,7 +9,7 @@ declare global {
   }
 }
 
-const BOT_USERNAME = "lyosintbot";
+const BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME ?? "lyosintbot";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function generateLoginToken(): string {
