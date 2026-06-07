@@ -1,13 +1,13 @@
 services:
   - type: pserv
     name: lyosint
-    runtime: docker
+    runtime: node
     plan: starter
     region: oregon
     branch: main
     rootDir: .
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    buildCommand: bash -c "set -e; if ! command -v python3 >/dev/null 2>&1; then apt-get update && apt-get install -y python3 python3-pip python3-venv libxml2 libxslt1.1; fi; python3 --version || true; pnpm install --frozen-lockfile=false && pnpm --filter @workspace/db run push && pnpm run build"
+    startCommand: pnpm --filter @workspace/api-server run start
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
