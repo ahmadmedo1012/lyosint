@@ -140,49 +140,63 @@ export function TelegramLoginButton({ onSuccess }: { onSuccess?: () => void }) {
 
 export function LoginPage({ onSuccess }: { onSuccess?: () => void }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6 py-10" dir="rtl">
-      <div className="w-full max-w-[400px] space-y-7">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6 py-10 relative overflow-hidden" dir="rtl">
+      {/* Background grid */}
+      <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] pointer-events-none" />
+      {/* Radial glow */}
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-primary/8 blur-[80px] rounded-full pointer-events-none" />
+
+      <div className="relative w-full max-w-[420px] space-y-6">
 
         {/* Brand */}
-        <div className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-              <Terminal className="w-5 h-5 text-primary" />
+        <div className="text-center space-y-3">
+          <div className="flex items-center justify-center">
+            <div className="relative w-14 h-14 rounded-2xl bg-primary/10 border border-primary/25 flex items-center justify-center">
+              <Terminal className="w-7 h-7 text-primary" />
+              <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-500 border-2 border-background animate-pulse" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold font-mono tracking-widest text-primary uppercase">LYOSINT</h1>
-          <p className="text-sm text-muted-foreground">منصة الاستخبارات الليبية المفتوحة</p>
+          <div>
+            <h1 className="text-4xl font-black font-mono tracking-[0.2em] text-primary uppercase text-glow">LYOSINT</h1>
+            <p className="text-sm text-muted-foreground mt-1.5">منصة الاستخبارات الليبية المفتوحة</p>
+          </div>
         </div>
 
-        {/* Card */}
-        <div className="bg-card border border-border/60 rounded-xl shadow-md overflow-hidden">
-          {/* Stats Strip */}
-          <div className="grid grid-cols-3 divide-x divide-x-reverse divide-border/40 border-b border-border/40">
-            {[
-              { value: "30 د", sub: "شهرياً" },
-              { value: "3",    sub: "مجانياً" },
-              { value: "40+",  sub: "منصة" },
-            ].map(({ value, sub }) => (
-              <div key={sub} className="py-3 text-center">
-                <div className="text-lg font-bold text-primary font-mono">{value}</div>
-                <div className="text-[10px] text-muted-foreground uppercase font-medium mt-0.5">{sub}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Login Section */}
-          <div className="p-5 space-y-4">
-            <div className="text-center space-y-1">
-              <div className="flex items-center justify-center gap-1.5 text-muted-foreground text-sm">
-                <ShieldAlert className="w-3.5 h-3.5" />
-                <span>تسجيل دخول آمن — بلا كلمات مرور</span>
-              </div>
+        {/* Stats Row */}
+        <div className="grid grid-cols-3 gap-2.5">
+          {[
+            { value: "75+",    label: "منصة OSINT",   color: "text-primary" },
+            { value: "مجاني",  label: "3 بحث أولاً",  color: "text-green-400" },
+            { value: "30 د.ل", label: "اشتراك/شهر",   color: "text-amber-400" },
+          ].map(({ value, label, color }) => (
+            <div key={label} className="bg-card border border-border/50 rounded-xl p-3 text-center">
+              <div className={`text-lg font-black font-mono ${color}`}>{value}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">{label}</div>
             </div>
+          ))}
+        </div>
+
+        {/* Login Card */}
+        <div className="bg-card border border-border/60 rounded-2xl overflow-hidden shadow-lg">
+          <div className="bg-secondary/30 border-b border-border/40 px-5 py-3 flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium">تسجيل دخول آمن — بلا كلمات مرور</span>
+          </div>
+          <div className="p-5">
             <TelegramLoginButton onSuccess={onSuccess} />
           </div>
         </div>
 
-        <p className="text-center text-[10px] text-muted-foreground/40 font-mono uppercase tracking-widest">
+        {/* Feature pills */}
+        <div className="flex flex-wrap justify-center gap-2">
+          {["بحث بالاسم", "بحث بالهاتف", "بحث بالمعرّف", "بحث شامل", "crt.sh", "GitHub OSINT"].map((f) => (
+            <span key={f} className="text-[10px] px-2.5 py-1 rounded-full border border-border/30 text-muted-foreground/60 font-mono">
+              {f}
+            </span>
+          ))}
+        </div>
+
+        <p className="text-center text-[10px] text-muted-foreground/30 font-mono uppercase tracking-widest">
           LYOSINT v3.0 · OSINT PLATFORM · LIBYA
         </p>
       </div>

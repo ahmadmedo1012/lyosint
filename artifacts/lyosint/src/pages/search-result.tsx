@@ -3,32 +3,80 @@ import { useGetSearchStatus, getGetSearchStatusQueryKey, useGetSearchResult } fr
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { User, Phone, AtSign, CheckCircle2, AlertTriangle, XCircle, Loader2, ExternalLink, MapPin, Network, Globe } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  User, Phone, AtSign, CheckCircle2, AlertTriangle, XCircle,
+  Loader2, ExternalLink, MapPin, Network, Globe, Shield, Wifi,
+  Key, Database, ChevronRight, Copy
+} from "lucide-react";
+import { useState } from "react";
 
 const TYPE_LABELS: Record<string, string> = {
-  name: "اسم",
-  phone: "هاتف",
-  username: "مستخدم",
-  deep: "شامل",
+  name: "اسم", phone: "هاتف", username: "معرّف", deep: "شامل",
 };
+const TYPE_COLORS: Record<string, string> = {
+  name: "text-blue-400 bg-blue-500/10 border-blue-500/25",
+  phone: "text-green-400 bg-green-500/10 border-green-500/25",
+  username: "text-purple-400 bg-purple-500/10 border-purple-500/25",
+  deep: "text-amber-400 bg-amber-500/10 border-amber-500/25",
+};
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+      className="text-muted-foreground/40 hover:text-primary transition-colors"
+      title="نسخ"
+    >
+      {copied ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+    </button>
+  );
+}
 
 function ConfidenceBar({ score }: { score: number }) {
   const pct = Math.round(score * 100);
-  const color = pct > 75 ? "text-green-500" : pct > 40 ? "text-amber-500" : "text-destructive";
-  const glowColor = pct > 75 ? "rgba(34,197,94,0.4)" : pct > 40 ? "rgba(245,158,11,0.4)" : "rgba(239,68,68,0.4)";
+  const { label, color, bg, border } =
+    pct > 75
+      ? { label: "موثوقية عالية", color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/25" }
+      : pct > 40
+        ? { label: "موثوقية متوسطة", color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/25" }
+        : { label: "موثوقية منخفضة", color: "text-destructive", bg: "bg-destructive/10", border: "border-destructive/25" };
+
   return (
-    <div className="bg-card border border-border rounded-lg p-3 sm:p-4 flex items-center justify-between border-glow">
-      <div className="text-sm text-muted-foreground flex items-center gap-2">
-        <CheckCircle2 className="w-4 h-4 shrink-0" />
-        <span className="hidden sm:inline">درجة موثوقية الهدف</span>
-        <span className="sm:hidden">الموثوقية</span>
+    <div className={`relative overflow-hidden rounded-xl border ${border} ${bg} px-5 py-4 flex items-center justify-between`}>
+      <div className="space-y-1">
+        <div className="text-xs text-muted-foreground uppercase tracking-widest font-mono">درجة الموثوقية</div>
+        <div className={`text-sm font-semibold ${color}`}>{label}</div>
       </div>
-      <div
-        className={`text-2xl sm:text-3xl font-mono font-bold ${color}`}
-        style={{ textShadow: `0 0 20px ${glowColor}` }}
-      >
-        {pct}%
+      <div className={`text-4xl font-black font-mono tabular-nums ${color} text-glow`}>{pct}%</div>
+      <div className="absolute bottom-0 inset-x-0 h-0.5 bg-border/30">
+        <div className={`h-full transition-all duration-1000 ${color.replace("text-", "bg-")}`} style={{ width: `${pct}%`, opacity: 0.5 }} />
+      </div>
+    </div>
+  );
+}
+
+function DataRow({ label, value, mono = false, dir: d = "auto" }: { label: string; value: React.ReactNode; mono?: boolean; dir?: "ltr" | "rtl" | "auto" }) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-2.5 border-b border-border/20 last:border-0">
+      <span className="text-xs text-muted-foreground uppercase font-mono shrink-0 mt-0.5">{label}</span>
+      <span className={`text-sm font-medium text-foreground text-left ${mono ? "font-mono" : ""}`} dir={d}>{value}</span>
+    </div>
+  );
+}
+
+function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementType; title: string; subtitle?: string }) {
+  return (
+    <div className="flex items-center justify-between border-b border-border/40 pb-3 mb-4">
+      <div className="flex items-center gap-2.5">
+        <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+          <Icon className="w-3.5 h-3.5 text-primary" />
+        </div>
+        <div>
+          <div className="text-sm font-bold">{title}</div>
+          {subtitle && <div className="text-xs text-muted-foreground font-mono">{subtitle}</div>}
+        </div>
       </div>
     </div>
   );
@@ -61,316 +109,369 @@ export default function SearchResultPage() {
   });
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto pb-8 sm:pb-12 page-transition" dir="rtl">
-      <div className="flex items-start justify-between border-b border-border/50 pb-4 sm:pb-5 gap-3 sm:gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-bold text-primary uppercase tracking-wider font-mono text-glow break-all">
-              ملف: <span dir="auto">{statusData?.query || "..."}</span>
+    <div className="space-y-4 sm:space-y-5 max-w-5xl mx-auto pb-10 page-transition" dir="rtl">
+
+      {/* ── Header ── */}
+      <div className="relative overflow-hidden rounded-xl border border-border/50 bg-card px-5 py-4">
+        <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] pointer-events-none" />
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              {statusData?.type && (
+                <Badge className={`text-[10px] font-mono border ${TYPE_COLORS[statusData.type] ?? ""}`}>
+                  {TYPE_LABELS[statusData.type] ?? statusData.type}
+                </Badge>
+              )}
+              <div className="flex items-center gap-1.5">
+                {isCompleted && <Badge className="text-[10px] bg-green-500/10 text-green-400 border-green-500/25">✓ مكتمل</Badge>}
+                {isRunning && <Badge className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/25 animate-pulse gap-1"><Loader2 className="w-2.5 h-2.5 animate-spin" /> جاري</Badge>}
+                {isFailed && <Badge variant="destructive" className="text-[10px]">✗ فاشل</Badge>}
+              </div>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-primary font-mono break-all text-glow" dir="auto">
+              {statusData?.query || "..."}
             </h1>
-            {statusData?.type && (
-              <Badge variant="outline" className="font-mono uppercase text-[10px] border-primary/50 text-primary shrink-0">
-                {TYPE_LABELS[statusData.type] ?? statusData.type}
-              </Badge>
-            )}
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[11px] font-mono text-muted-foreground/50 break-all" dir="ltr">{id}</span>
+              {id && <CopyButton text={id} />}
+            </div>
           </div>
-          <div className="text-xs font-mono text-muted-foreground mt-1.5 uppercase tracking-wider break-all">
-            <span className="hidden sm:inline">معرّف المهمة: </span>
-            <span className="text-foreground/60">{id}</span>
-          </div>
-        </div>
-        <div className="shrink-0">
-          {isRunning && (
-            <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/40 uppercase font-mono animate-pulse gap-1.5 text-[10px] sm:text-xs">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              <span className="hidden sm:inline">جاري التنفيذ</span>
-              <span className="sm:hidden">جاري</span>
-            </Badge>
-          )}
-          {isCompleted && (
-            <Badge className="bg-green-500/15 text-green-400 border border-green-500/40 uppercase font-mono text-[10px] sm:text-xs">
-              مكتمل
-            </Badge>
-          )}
-          {isFailed && (
-            <Badge variant="destructive" className="uppercase font-mono text-[10px] sm:text-xs">
-              فاشل
-            </Badge>
-          )}
         </div>
       </div>
 
+      {/* ── Running State ── */}
       {isRunning && (
-        <Card className="bg-secondary/20 border-primary/25 border-glow">
-          <CardContent className="pt-5 sm:pt-6 space-y-4 sm:space-y-5">
-            <div className="flex justify-between items-center text-sm uppercase">
-              <span className="text-muted-foreground flex items-center gap-2 font-mono">
+        <div className="relative overflow-hidden rounded-xl border border-primary/25 bg-primary/4 scan-line">
+          <div className="px-5 py-4 space-y-4">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground flex items-center gap-2 font-mono">
                 <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                <span className="hidden sm:inline">فحص الشبكات...</span>
-                <span className="sm:hidden">فحص...</span>
+                فحص الشبكات والمنصات...
               </span>
-              <span className="text-primary font-bold font-mono text-lg text-glow">
+              <span className="text-2xl font-black font-mono text-primary text-glow tabular-nums">
                 {statusData?.progress || 0}%
               </span>
             </div>
-            <Progress
-              value={statusData?.progress || 0}
-              className="h-1.5 bg-secondary"
-            />
+            <Progress value={statusData?.progress || 0} className="h-1.5" />
             <div className="flex justify-between text-[10px] font-mono text-muted-foreground uppercase">
-              <span>مفحوص: {statusData?.platformsSearched || 0}</span>
-              <span>الإجمالي: {statusData?.platformsTotal || 0}</span>
+              <span>مفحوص: <span className="text-primary">{statusData?.platformsSearched || 0}</span></span>
+              <span>الإجمالي: <span className="text-foreground">{statusData?.platformsTotal || 0}</span></span>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {isFailed && (
-        <Card className="border-destructive bg-destructive/10">
-          <CardContent className="pt-5 sm:pt-6 flex items-center gap-3 sm:gap-4 text-destructive">
-            <XCircle className="w-7 h-7 sm:w-8 sm:h-8 shrink-0" />
-            <div>
-              <div className="font-bold uppercase tracking-wider text-base sm:text-lg font-mono">فشلت العملية</div>
-              <div className="text-sm opacity-80 mt-1">تعذّر إتمام جمع المعلومات الاستخباراتية لهذا الهدف.</div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {isCompleted && resultLoading && (
-        <div className="space-y-4">
-          <Skeleton className="h-20 w-full bg-secondary/30" />
-          <Skeleton className="h-52 w-full bg-secondary/30" />
+          </div>
         </div>
       )}
 
+      {/* ── Failed State ── */}
+      {isFailed && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/8 px-5 py-4 flex items-center gap-3">
+          <XCircle className="w-8 h-8 text-destructive shrink-0" />
+          <div>
+            <div className="font-bold text-destructive">فشلت العملية</div>
+            <div className="text-sm text-muted-foreground mt-0.5">تعذّر إتمام جمع المعلومات لهذا الهدف.</div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Loading skeleton ── */}
+      {isCompleted && resultLoading && (
+        <div className="space-y-4">
+          <Skeleton className="h-16 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-xl" />
+        </div>
+      )}
+
+      {/* ── Results ── */}
       {isCompleted && resultData && (
-        <div className="space-y-4 sm:space-y-6 page-transition">
+        <div className="space-y-4 sm:space-y-5 page-transition">
+
+          {/* Confidence */}
           {resultData.confidenceScore !== undefined && resultData.confidenceScore !== null && (
             <ConfidenceBar score={resultData.confidenceScore} />
           )}
 
+          {/* ── Name Result ── */}
           {resultData.nameResult && (
-            <Card className="border-primary/20 bg-card border-glow">
-              <CardHeader className="border-b border-border/50 bg-secondary/20 pb-3 sm:pb-4">
-                <CardTitle className="text-sm uppercase text-foreground flex items-center gap-2 font-mono">
-                  <User className="w-4 h-4 text-primary" /> معلومات شخصية
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4 sm:pt-6 grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-8">
-                <div className="space-y-4">
-                  <div>
-                    <div className="text-[10px] font-mono text-muted-foreground uppercase mb-1.5">الاسم الكامل</div>
-                    <div className="text-base sm:text-lg font-bold text-foreground" dir="auto">{resultData.nameResult.fullName || "غير محدد"}</div>
-                  </div>
-                  {resultData.nameResult.possibleVariations && resultData.nameResult.possibleVariations.length > 0 && (
-                    <div>
-                      <div className="text-[10px] font-mono text-muted-foreground uppercase mb-1.5">الأسماء المشابهة</div>
-                      <div className="flex flex-wrap gap-2">
-                        {resultData.nameResult.possibleVariations.map((alias) => (
-                          <Badge key={alias} variant="secondary" className="font-mono text-xs" dir="ltr">{alias}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {resultData.nameResult.associatedNames && resultData.nameResult.associatedNames.length > 0 && (
-                    <div>
-                      <div className="text-[10px] font-mono text-muted-foreground uppercase mb-1.5">أسماء مرتبطة</div>
-                      <div className="flex flex-wrap gap-2">
-                        {resultData.nameResult.associatedNames.map((n) => (
-                          <Badge key={n} variant="outline" className="text-xs" dir="auto">{n}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-4">
-                  {resultData.nameResult.phoneNumbers && resultData.nameResult.phoneNumbers.length > 0 && (
-                    <div>
-                      <div className="text-[10px] font-mono text-muted-foreground uppercase mb-1.5 flex items-center gap-1">
-                        <Phone className="w-3 h-3" /> أرقام الهاتف
-                      </div>
-                      <ul className="space-y-1.5">
-                        {resultData.nameResult.phoneNumbers.map((phone) => (
-                          <li key={phone} className="text-primary font-mono text-sm" dir="ltr">{phone}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {resultData.nameResult.addresses && resultData.nameResult.addresses.length > 0 && (
-                    <div>
-                      <div className="text-[10px] font-mono text-muted-foreground uppercase mb-1.5 flex items-center gap-1">
-                        <MapPin className="w-3 h-3" /> المواقع الجغرافية
-                      </div>
-                      <ul className="space-y-2">
-                        {resultData.nameResult.addresses.map((addr) => (
-                          <li key={addr} className="bg-secondary/40 px-3 py-2 rounded border border-border/40 text-sm" dir="auto">{addr}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {resultData.nameResult.regionHint && (
-                    <div>
-                      <div className="text-[10px] font-mono text-muted-foreground uppercase mb-1">المنطقة المحتملة</div>
-                      <div className="text-sm text-foreground/80 font-mono">{resultData.nameResult.regionHint}</div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+            <Card className="border-border/50 glow-box overflow-hidden">
+              <CardContent className="p-5">
+                <SectionHeader icon={User} title="معلومات شخصية" subtitle="تحليل الهوية والبيانات المرتبطة" />
 
-          {resultData.phoneResult && (
-            <Card className="border-primary/20 bg-card border-glow">
-              <CardHeader className="border-b border-border/50 bg-secondary/20 pb-3 sm:pb-4">
-                <CardTitle className="text-sm uppercase text-foreground flex items-center gap-2 font-mono">
-                  <Phone className="w-4 h-4 text-primary" /> بيانات الاتصالات
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-4 sm:pt-6 grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-8">
-                <div className="space-y-4 sm:space-y-5">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <div className="text-xl sm:text-2xl font-bold text-foreground font-mono break-all" dir="ltr">
-                      {resultData.phoneResult.nationalFormat || resultData.phoneResult.phone}
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className={`font-mono text-xs uppercase ${resultData.phoneResult.valid ? "text-green-500 border-green-500/50" : "text-destructive border-destructive"}`}
-                    >
-                      {resultData.phoneResult.valid ? "صالح" : "غير صالح"}
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-secondary/30 p-3 rounded border border-border/50">
-                      <div className="text-[10px] font-mono text-muted-foreground uppercase mb-1">المشغّل</div>
-                      <div className="text-sm font-bold flex items-center gap-1.5 flex-wrap">
-                        <Network className="w-3 h-3 text-primary shrink-0" />
-                        <span className={`break-all ${
-                          resultData.phoneResult.carrier?.includes("Madar") ? "text-blue-400" :
-                          resultData.phoneResult.carrier?.includes("Libyana") ? "text-purple-400" : "text-foreground"
-                        }`}>
-                          {resultData.phoneResult.carrier || "غير محدد"}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-0">
+                    <DataRow label="الاسم الكامل" value={resultData.nameResult.fullName || "غير محدد"} dir="auto" />
+                    {resultData.nameResult.regionHint && (
+                      <DataRow label="المنطقة المحتملة" value={
+                        <span className="flex items-center gap-1.5">
+                          <MapPin className="w-3 h-3 text-primary shrink-0" />
+                          {resultData.nameResult.regionHint}
                         </span>
+                      } />
+                    )}
+                    {resultData.nameResult.possibleVariations && resultData.nameResult.possibleVariations.length > 0 && (
+                      <div className="py-2.5 border-b border-border/20">
+                        <div className="text-xs text-muted-foreground uppercase font-mono mb-2">الأسماء المشابهة</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {resultData.nameResult.possibleVariations.map((alias) => (
+                            <Badge key={alias} variant="secondary" className="font-mono text-xs" dir="ltr">{alias}</Badge>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    <div className="bg-secondary/30 p-3 rounded border border-border/50">
-                      <div className="text-[10px] font-mono text-muted-foreground uppercase mb-1">نوع الخط</div>
-                      <div className="text-sm font-bold font-mono">{resultData.phoneResult.lineType || "غير محدد"}</div>
-                    </div>
+                    )}
+                    {resultData.nameResult.associatedNames && resultData.nameResult.associatedNames.length > 0 && (
+                      <div className="py-2.5">
+                        <div className="text-xs text-muted-foreground uppercase font-mono mb-2">أسماء مرتبطة</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {resultData.nameResult.associatedNames.map((n) => (
+                            <Badge key={n} variant="outline" className="text-xs" dir="auto">{n}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  {(resultData.phoneResult.possibleOwner || resultData.phoneResult.possibleOwnerEn) && (
-                    <div className="bg-primary/5 p-3 sm:p-4 rounded border border-primary/20 border-glow">
-                      <div className="text-[10px] font-mono text-primary uppercase mb-2 flex items-center gap-1">
-                        <User className="w-3 h-3" /> المالك المحتمل
+
+                  <div className="space-y-4">
+                    {resultData.nameResult.phoneNumbers && resultData.nameResult.phoneNumbers.length > 0 && (
+                      <div>
+                        <div className="text-xs text-muted-foreground uppercase font-mono mb-2 flex items-center gap-1">
+                          <Phone className="w-3 h-3" /> أرقام الهاتف
+                        </div>
+                        <ul className="space-y-1.5">
+                          {resultData.nameResult.phoneNumbers.map((ph) => (
+                            <li key={ph} className="flex items-center justify-between bg-secondary/30 px-3 py-2 rounded-lg border border-border/30">
+                              <span className="text-primary font-mono text-sm" dir="ltr">{ph}</span>
+                              <CopyButton text={ph} />
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                      <div className="text-base sm:text-lg font-medium" dir="rtl">{resultData.phoneResult.possibleOwner}</div>
-                      {resultData.phoneResult.possibleOwnerEn && (
-                        <div className="text-sm text-muted-foreground mt-1 font-mono" dir="ltr">{resultData.phoneResult.possibleOwnerEn}</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-4 sm:space-y-5">
-                  <div>
-                    <div className="text-[10px] font-mono text-muted-foreground uppercase mb-2">المنصات المرتبطة</div>
-                    <div className="flex gap-2 sm:gap-3 flex-wrap">
-                      <Badge
-                        variant="outline"
-                        className={`font-mono text-xs px-2.5 sm:px-3 py-1.5 ${resultData.phoneResult.whatsapp ? "bg-green-500/10 text-green-400 border-green-500/40" : "opacity-35"}`}
-                      >
-                        WhatsApp {resultData.phoneResult.whatsapp ? "✓" : "✗"}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className={`font-mono text-xs px-2.5 sm:px-3 py-1.5 ${resultData.phoneResult.telegramRegistered ? "bg-blue-500/10 text-blue-400 border-blue-500/40" : "opacity-35"}`}
-                      >
-                        Telegram {resultData.phoneResult.telegramRegistered ? "✓" : "✗"}
-                      </Badge>
-                    </div>
+                    )}
+                    {resultData.nameResult.addresses && resultData.nameResult.addresses.length > 0 && (
+                      <div>
+                        <div className="text-xs text-muted-foreground uppercase font-mono mb-2 flex items-center gap-1">
+                          <MapPin className="w-3 h-3" /> المواقع
+                        </div>
+                        <ul className="space-y-1.5">
+                          {resultData.nameResult.addresses.map((addr) => (
+                            <li key={addr} className="bg-secondary/30 px-3 py-2 rounded-lg border border-border/30 text-sm" dir="auto">{addr}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-                  {resultData.phoneResult.region && (
-                    <div className="bg-secondary/30 p-3 rounded border border-border/40">
-                      <div className="text-[10px] font-mono text-muted-foreground uppercase mb-1">المنطقة الجغرافية</div>
-                      <div className="text-sm font-mono">{resultData.phoneResult.region}</div>
-                    </div>
-                  )}
-                  {resultData.phoneResult.breachInfo && resultData.phoneResult.breachInfo.length > 0 && (
-                    <div className="border border-amber-500/30 bg-amber-500/5 rounded p-3">
-                      <div className="text-[10px] font-mono text-amber-500 uppercase mb-2 flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3" /> تسريبات البيانات
-                      </div>
-                      <ul className="text-xs font-mono text-amber-400/80 space-y-1">
-                        {resultData.phoneResult.breachInfo.map((b) => <li key={b}>{b}</li>)}
-                      </ul>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {resultData.usernameResult && (
-            <Card className="border-primary/20 bg-card border-glow">
-              <CardHeader className="border-b border-border/50 bg-secondary/20 pb-3 sm:pb-4">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <CardTitle className="text-sm uppercase text-foreground flex items-center gap-2 font-mono">
-                    <AtSign className="w-4 h-4 text-primary" /> البصمة الرقمية
-                  </CardTitle>
-                  <div className="text-xs font-mono text-muted-foreground">
-                    <span className="text-primary font-bold">{resultData.usernameResult.totalFound}</span>
-                    <span> / {resultData.usernameResult.totalPlatformsSearched} منصة</span>
+          {/* ── Phone Result ── */}
+          {resultData.phoneResult && (
+            <Card className="border-border/50 glow-box overflow-hidden">
+              <CardContent className="p-5">
+                <SectionHeader icon={Phone} title="بيانات الاتصالات" subtitle="تحليل رقم الهاتف ومزود الخدمة" />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-0">
+                    <div className="py-3 border-b border-border/20 flex items-center justify-between">
+                      <div className="font-mono text-xl font-bold text-foreground" dir="ltr">
+                        {resultData.phoneResult.nationalFormat || resultData.phoneResult.phone}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CopyButton text={resultData.phoneResult.phone || ""} />
+                        <Badge variant="outline" className={`font-mono text-xs ${resultData.phoneResult.valid ? "text-green-400 border-green-500/40" : "text-destructive border-destructive/40"}`}>
+                          {resultData.phoneResult.valid ? "✓ صالح" : "✗ غير صالح"}
+                        </Badge>
+                      </div>
+                    </div>
+                    <DataRow label="المشغّل" value={
+                      <span className={`flex items-center gap-1.5 ${
+                        resultData.phoneResult.carrier?.includes("Madar") ? "text-blue-400" :
+                        resultData.phoneResult.carrier?.includes("Libyana") ? "text-purple-400" : ""
+                      }`}>
+                        <Network className="w-3 h-3 shrink-0" />
+                        {resultData.phoneResult.carrier || "غير محدد"}
+                      </span>
+                    } />
+                    <DataRow label="نوع الخط" value={resultData.phoneResult.lineType || "غير محدد"} mono />
+                    {resultData.phoneResult.region && (
+                      <DataRow label="المنطقة" value={resultData.phoneResult.region} />
+                    )}
+                    {(resultData.phoneResult.possibleOwner || resultData.phoneResult.possibleOwnerEn) && (
+                      <div className="mt-3 p-3.5 rounded-lg bg-primary/6 border border-primary/20">
+                        <div className="text-[10px] font-mono text-primary uppercase mb-1.5 flex items-center gap-1">
+                          <User className="w-3 h-3" /> المالك المحتمل
+                        </div>
+                        <div className="font-semibold text-base" dir="rtl">{resultData.phoneResult.possibleOwner}</div>
+                        {resultData.phoneResult.possibleOwnerEn && (
+                          <div className="text-sm text-muted-foreground font-mono mt-0.5" dir="ltr">{resultData.phoneResult.possibleOwnerEn}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-xs text-muted-foreground uppercase font-mono mb-2.5">المنصات المرتبطة</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { name: "WhatsApp", active: resultData.phoneResult.whatsapp, color: "green" },
+                          { name: "Telegram", active: resultData.phoneResult.telegramRegistered, color: "blue" },
+                        ].map(({ name, active, color }) => (
+                          <div key={name} className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${
+                            active
+                              ? `bg-${color}-500/10 border-${color}-500/30 text-${color}-400`
+                              : "bg-secondary/20 border-border/20 text-muted-foreground/40"
+                          }`}>
+                            {active ? <Wifi className="w-3.5 h-3.5 shrink-0" /> : <XCircle className="w-3.5 h-3.5 shrink-0" />}
+                            {name}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {resultData.phoneResult.breachInfo && resultData.phoneResult.breachInfo.length > 0 && (
+                      <div className="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/6">
+                        <div className="text-[10px] font-mono text-amber-500 uppercase mb-2 flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" /> تسريبات البيانات ({resultData.phoneResult.breachInfo.length})
+                        </div>
+                        <ul className="text-xs font-mono text-amber-400/80 space-y-1">
+                          {resultData.phoneResult.breachInfo.map((b) => (
+                            <li key={b} className="flex items-center gap-1.5">
+                              <ChevronRight className="w-3 h-3 shrink-0 opacity-50" />
+                              {b}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent className="pt-4 sm:pt-6">
-                {resultData.usernameResult.possibleEmail && (
-                  <div className="mb-4 sm:mb-5 bg-secondary/30 px-3 sm:px-4 py-2.5 rounded border border-border/40 inline-block max-w-full">
-                    <span className="text-[10px] font-mono text-muted-foreground uppercase ml-2">البريد المحتمل:</span>
-                    <span className="text-primary font-mono text-sm break-all" dir="ltr">{resultData.usernameResult.possibleEmail}</span>
-                  </div>
-                )}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
-                  {resultData.usernameResult.profilesFound && Object.entries(resultData.usernameResult.profilesFound).map(([platform, profile]) => (
-                    <div
-                      key={platform}
-                      className={`p-3 rounded border font-mono transition-all duration-200 ${
-                        profile.exists
-                          ? "bg-primary/5 border-primary/25 hover:border-primary/50 hover:bg-primary/10 group"
-                          : "bg-secondary/10 border-border/20 opacity-40 grayscale"
-                      }`}
-                    >
-                      <div className="text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <Globe className="w-3 h-3 text-primary shrink-0" />
-                        <span className="truncate">{platform}</span>
-                      </div>
-                      {profile.exists ? (
-                        <div className="space-y-1 text-xs">
-                          {profile.displayName && (
-                            <div className="text-foreground/80 truncate">{profile.displayName}</div>
-                          )}
-                          {profile.followers !== undefined && profile.followers !== null && (
-                            <div className="text-muted-foreground">
-                              <span className="text-primary font-bold">{profile.followers.toLocaleString("ar")}</span> متابع
-                            </div>
-                          )}
-                          {profile.url && (
-                            <a
-                              href={profile.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-2"
-                              dir="ltr"
-                            >
-                              رابط <ExternalLink className="w-3 h-3" />
-                            </a>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="text-[10px] text-muted-foreground mt-1 uppercase">غير موجود</div>
-                      )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── Username Result ── */}
+          {resultData.usernameResult && (
+            <Card className="border-border/50 glow-box overflow-hidden">
+              <CardContent className="p-5">
+                <SectionHeader
+                  icon={AtSign}
+                  title="البصمة الرقمية"
+                  subtitle={`${resultData.usernameResult.totalFound} / ${resultData.usernameResult.totalPlatformsSearched} منصة`}
+                />
+
+                {/* Summary stats */}
+                <div className="grid grid-cols-3 gap-3 mb-5">
+                  {[
+                    {
+                      label: "موجود في",
+                      value: resultData.usernameResult.totalFound,
+                      color: "text-primary",
+                      bg: "bg-primary/5 border-primary/15",
+                    },
+                    {
+                      label: "مفحوصة",
+                      value: resultData.usernameResult.totalPlatformsSearched,
+                      color: "text-foreground",
+                      bg: "bg-secondary/30 border-border/30",
+                    },
+                    {
+                      label: "نسبة الظهور",
+                      value: `${Math.round((resultData.usernameResult.totalFound / Math.max(1, resultData.usernameResult.totalPlatformsSearched)) * 100)}%`,
+                      color: resultData.usernameResult.totalFound > 10 ? "text-amber-400" : "text-green-400",
+                      bg: "bg-secondary/20 border-border/20",
+                    },
+                  ].map(({ label, value, color, bg }) => (
+                    <div key={label} className={`text-center py-3 px-2 rounded-lg border ${bg}`}>
+                      <div className={`text-xl font-black font-mono ${color}`}>{value}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase font-medium mt-0.5">{label}</div>
                     </div>
                   ))}
                 </div>
+
+                {resultData.usernameResult.possibleEmail && (
+                  <div className="mb-4 flex items-center gap-3 px-3.5 py-2.5 bg-secondary/30 rounded-lg border border-border/40">
+                    <Key className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="text-xs text-muted-foreground uppercase font-mono">البريد المحتمل:</span>
+                    <span className="text-primary font-mono text-sm flex-1" dir="ltr">{resultData.usernameResult.possibleEmail}</span>
+                    <CopyButton text={resultData.usernameResult.possibleEmail} />
+                  </div>
+                )}
+
+                {/* Breaches */}
+                {resultData.usernameResult.breaches && resultData.usernameResult.breaches.length > 0 && (
+                  <div className="mb-4 p-3.5 rounded-lg border border-red-500/25 bg-red-500/6">
+                    <div className="text-[10px] font-mono text-red-400 uppercase mb-2 flex items-center gap-1">
+                      <Database className="w-3 h-3" /> تسريبات بيانات ({resultData.usernameResult.breaches.length})
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {resultData.usernameResult.breaches.map((b: any) => (
+                        <Badge key={b.name} variant="outline" className="text-[10px] border-red-500/25 text-red-400 font-mono">
+                          {b.name} {b.breachDate && `(${b.breachDate.split("-")[0]})`}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Platform grid */}
+                {resultData.usernameResult.profilesFound && (
+                  <>
+                    {/* Found platforms */}
+                    {Object.entries(resultData.usernameResult.profilesFound).filter(([, p]: [string, any]) => p.exists).length > 0 && (
+                      <div className="mb-3">
+                        <div className="text-[10px] text-muted-foreground uppercase font-mono mb-2.5 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-green-400" />
+                          الحسابات المُكتشفة
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                          {Object.entries(resultData.usernameResult.profilesFound)
+                            .filter(([, p]: [string, any]) => p.exists)
+                            .map(([platform, profile]: [string, any]) => (
+                              <div key={platform} className="group relative overflow-hidden rounded-lg border border-primary/20 bg-primary/4 hover:border-primary/40 hover:bg-primary/8 transition-all p-3">
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                  <Shield className="w-3 h-3 text-green-400 shrink-0" />
+                                  <span className="text-xs font-bold uppercase tracking-wide truncate">{platform}</span>
+                                </div>
+                                {profile.displayName && (
+                                  <div className="text-xs text-muted-foreground truncate">{profile.displayName}</div>
+                                )}
+                                {profile.followers !== undefined && profile.followers !== null && (
+                                  <div className="text-[10px] text-muted-foreground/70 mt-0.5">
+                                    <span className="text-primary font-bold font-mono">{profile.followers.toLocaleString()}</span> متابع
+                                  </div>
+                                )}
+                                {profile.url && (
+                                  <a href={profile.url} target="_blank" rel="noopener noreferrer"
+                                    className="mt-2 flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 font-mono" dir="ltr">
+                                    فتح الرابط <ExternalLink className="w-2.5 h-2.5" />
+                                  </a>
+                                )}
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Not found platforms */}
+                    {Object.entries(resultData.usernameResult.profilesFound).filter(([, p]: [string, any]) => !p.exists).length > 0 && (
+                      <details className="mt-2">
+                        <summary className="text-[10px] text-muted-foreground/50 uppercase font-mono cursor-pointer hover:text-muted-foreground transition-colors flex items-center gap-1.5 py-1">
+                          <Globe className="w-3 h-3" />
+                          المنصات غير المُكتشفة ({Object.entries(resultData.usernameResult.profilesFound).filter(([, p]: [string, any]) => !p.exists).length})
+                        </summary>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {Object.entries(resultData.usernameResult.profilesFound)
+                            .filter(([, p]: [string, any]) => !p.exists)
+                            .map(([platform]) => (
+                              <span key={platform} className="text-[10px] px-2 py-0.5 rounded bg-secondary/20 border border-border/20 text-muted-foreground/40 font-mono uppercase">
+                                {platform}
+                              </span>
+                            ))}
+                        </div>
+                      </details>
+                    )}
+                  </>
+                )}
               </CardContent>
             </Card>
           )}

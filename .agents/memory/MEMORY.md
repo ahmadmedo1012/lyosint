@@ -1,5 +1,6 @@
 - [Admin panel routing](admin-panel-routing.md) — /admin must be intercepted BEFORE AuthGate in App.tsx, not as a nested route inside it.
-- [Real HTTP OSINT architecture](osint-real-checks.md) — username search uses real HTTP checks for 35+ verified platforms + 40+ manual links; concurrency=8.
+- [Real HTTP OSINT architecture](osint-real-checks.md) — username search uses real HTTP checks for 35+ verified + 40+ manual; enriched with crt.sh, emailrep, leakcheck on every run.
+- [DB auto-migration on startup](db-auto-migrate.md) — api-server dev script runs `pnpm --filter @workspace/db run push` before build; tables always exist on start.
 - [Settings/API Keys storage](settings-storage.md) — API keys stored in `settings` DB table, managed via admin panel, never exposed in API responses.
 - [Admin credentials system](admin-credentials.md) — admin user/pass read from DB first (sys_admin_username/sys_admin_password), fallback to env vars; changeable live via /admin credentials tab.
 - [System config pattern](system-config.md) — system settings (quota, sub days, timeout, etc.) stored in `settings` table under sys_* prefix, defined in SYSTEM_CONFIG_DEFS, editable via /api/admin/system-config.

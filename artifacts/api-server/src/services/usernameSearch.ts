@@ -2,7 +2,7 @@ import { db, searchesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { checkUsername, type PlatformResult } from "./httpChecker";
 import { getGitHubProfile } from "./githubOsint";
-import { checkHIBP, lookupTwitchUser } from "./freeApis";
+import { checkHIBP, lookupTwitchUser, checkLeakCheck, checkEmailRep, crtShLookup } from "./freeApis";
 import { getSetting } from "./settingsService";
 
 export async function runUsernameSearch(id: string, username: string): Promise<void> {
@@ -18,7 +18,7 @@ export async function runUsernameSearch(id: string, username: string): Promise<v
     const results: PlatformResult[] = platformResults.status === "fulfilled" ? platformResults.value : [];
     const twitch = twitchData.status === "fulfilled" ? twitchData.value : null;
 
-    await db.update(searchesTable).set({ progress: 60, platformsSearched: results.length }).where(eq(searchesTable.id, id));
+    await db.update(searchesTable).set({ progress: 55, platformsSearched: results.length }).where(eq(searchesTable.id, id));
 
     // Enrich GitHub result if found
     let githubProfile = null;
@@ -26,14 +26,31 @@ export async function runUsernameSearch(id: string, username: string): Promise<v
     if (ghResult) {
       githubProfile = await getGitHubProfile(username).catch(() => null);
     }
-    await db.update(searchesTable).set({ progress: 75 }).where(eq(searchesTable.id, id));
+    await db.update(searchesTable).set({ progress: 68 }).where(eq(searchesTable.id, id));
 
-    // Check HIBP if configured
-    let breaches: Array<{ name: string; breachDate: string; dataClasses: string[] }> | null = null;
+    // Build possible email from github or common patterns
+    const possibleEmail = githubProfile?.email ?? null;
+
+    // Run breach & reputation checks concurrently
     const hibpKey = await getSetting("hibp_api_key");
-    if (hibpKey) {
-      breaches = await checkHIBP(username).catch(() => null);
-    }
+    const [breachesHIBP, breachesLeakCheck, emailRepData, certData] = await Promise.allSettled([
+      hibpKey ? checkHIBP(username).catch(() => null) : Promise.resolve(null),
+      checkLeakCheck(username, "username").catch(() => null),
+      possibleEmail ? checkEmailRep(possibleEmail).catch(() => null) : Promise.resolve(null),
+      // Check crt.sh for domain certificates if username looks like a domain
+      username.includes(".") ? crtShLookup(username).catch(() => []) : Promise.resolve([]),
+    ]);
+
+    const breaches = [
+      ...(breachesHIBP.status === "fulfilled" && breachesHIBP.value ? breachesHIBP.value : []),
+      ...(breachesLeakCheck.status === "fulfilled" && breachesLeakCheck.value
+        ? breachesLeakCheck.value.map((l) => ({ name: l.source, breachDate: l.date ?? "", dataClasses: [] }))
+        : []),
+    ];
+
+    const emailRep = emailRepData.status === "fulfilled" ? emailRepData.value : null;
+    const certs = certData.status === "fulfilled" ? certData.value : [];
+
     await db.update(searchesTable).set({ progress: 88 }).where(eq(searchesTable.id, id));
 
     // Build profiles map
@@ -69,8 +86,11 @@ export async function runUsernameSearch(id: string, username: string): Promise<v
     const totalFound = Object.values(profilesFound).filter((p) => p.exists).length;
     const verifiedFound = Object.values(profilesFound).filter((p) => p.exists && p.verified).length;
 
-    // Calculate confidence based on verified results
-    const confidence = Math.round(Math.min(0.2 + verifiedFound * 0.08 + (githubProfile ? 0.15 : 0), 0.97) * 100) / 100;
+    // Confidence: verified hits + breach context + cert data
+    const confidence = Math.round(Math.min(
+      0.2 + verifiedFound * 0.08 + (githubProfile ? 0.15 : 0) + (breaches.length > 0 ? 0.05 : 0),
+      0.97
+    ) * 100) / 100;
 
     const usernameResult = {
       username,
@@ -80,7 +100,9 @@ export async function runUsernameSearch(id: string, username: string): Promise<v
       verifiedFound,
       githubProfile,
       breaches,
-      possibleEmail: githubProfile?.email ?? null,
+      emailRep,
+      certDomains: certs.slice(0, 10).map((c: any) => c.domain),
+      possibleEmail,
       summary: {
         realName: githubProfile?.name ?? null,
         location: githubProfile?.location ?? null,

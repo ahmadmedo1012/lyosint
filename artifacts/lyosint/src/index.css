@@ -401,17 +401,60 @@
   text-align: left;
 }
 
-/* Legacy classes — kept for compatibility but toned way down */
-.text-glow {
-  /* removed — use accent text color instead */
+/* ─── Grid pattern background ─── */
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(hsl(var(--primary) / 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(var(--primary) / 0.06) 1px, transparent 1px);
+  background-size: 32px 32px;
 }
 
+/* ─── Subtle animated gradient border ─── */
+@keyframes border-pulse {
+  0%, 100% { border-color: hsl(var(--primary) / 0.15); }
+  50%       { border-color: hsl(var(--primary) / 0.45); }
+}
 .border-glow {
-  border-color: hsl(var(--primary) / 0.2);
+  animation: border-pulse 3s ease-in-out infinite;
+}
+
+/* ─── Text glow ─── */
+.text-glow {
+  text-shadow: 0 0 20px hsl(var(--primary) / 0.4);
+}
+
+/* ─── Scan line animation for result cards ─── */
+@keyframes scan {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(600%); }
+}
+.scan-line::after {
+  content: "";
+  position: absolute;
+  inset-x: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.4), transparent);
+  animation: scan 2.5s linear infinite;
+  pointer-events: none;
+}
+
+/* ─── Confidence bar shimmer ─── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg,
+    hsl(var(--primary)/0.1) 25%,
+    hsl(var(--primary)/0.25) 50%,
+    hsl(var(--primary)/0.1) 75%
+  );
+  background-size: 200% auto;
+  animation: shimmer 2s linear infinite;
 }
 
 .glow-box {
-  /* removed */
+  box-shadow: 0 0 30px -8px hsl(var(--primary) / 0.25);
 }
 
 /* ──────────────────────────────────────
