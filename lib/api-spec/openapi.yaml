@@ -417,6 +417,29 @@ components:
         nationalFormat:
           type: ["string", "null"]
 
+    MaigretProfile:
+      type: object
+      properties:
+        site:
+          type: string
+        url:
+          type: ["string", "null"]
+        category:
+          type: string
+        httpStatus:
+          type: ["integer", "null"]
+        detectionMethod:
+          type: string
+        fullname:
+          type: ["string", "null"]
+        bio:
+          type: ["string", "null"]
+        image:
+          type: ["string", "null"]
+        extra:
+          type: object
+          additionalProperties: { type: string }
+
     InvestigativeLink:
       type: object
       required: [label, url, type]
@@ -490,6 +513,10 @@ components:
           type: ["string", "null"]
         profileFullname:
           type: ["string", "null"]
+        maigretProfiles:
+          type: array
+          items:
+            $ref: "#/components/schemas/MaigretProfile"
         certDomains:
           type: array
           items:

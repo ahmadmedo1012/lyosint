@@ -18,6 +18,8 @@ export * from './gitHubUserItem';
 export * from './healthStatus';
 export * from './investigativeLink';
 export * from './listRecentSearchesParams';
+export * from './maigretProfile';
+export * from './maigretProfileExtra';
 export * from './messagingApps';
 export * from './messagingAppStatus';
 export * from './namedLink';

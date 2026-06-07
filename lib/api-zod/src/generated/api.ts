@@ -225,6 +225,17 @@ export const GetSearchResultResponse = zod.object({
   "profilePhoto": zod.string().nullish(),
   "profileBio": zod.string().nullish(),
   "profileFullname": zod.string().nullish(),
+  "maigretProfiles": zod.array(zod.object({
+  "site": zod.string().optional(),
+  "url": zod.string().nullish(),
+  "category": zod.string().optional(),
+  "httpStatus": zod.number().nullish(),
+  "detectionMethod": zod.string().optional(),
+  "fullname": zod.string().nullish(),
+  "bio": zod.string().nullish(),
+  "image": zod.string().nullish(),
+  "extra": zod.record(zod.string(), zod.string()).optional()
+})).optional(),
   "certDomains": zod.array(zod.string()),
   "possibleEmail": zod.string().nullish(),
   "possiblePhone": zod.string().nullish(),

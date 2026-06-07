@@ -8,6 +8,7 @@
 import type { BreachEntry } from './breachEntry';
 import type { EmailRep } from './emailRep';
 import type { GitHubProfile } from './gitHubProfile';
+import type { MaigretProfile } from './maigretProfile';
 import type { UsernameResultProfilesFound } from './usernameResultProfilesFound';
 import type { UsernameSummary } from './usernameSummary';
 
@@ -27,6 +28,7 @@ export interface UsernameResult {
   profileBio?: string | null;
   /** @nullable */
   profileFullname?: string | null;
+  maigretProfiles?: MaigretProfile[];
   certDomains: string[];
   /** @nullable */
   possibleEmail?: string | null;

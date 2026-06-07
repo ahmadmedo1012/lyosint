@@ -128,6 +128,17 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
   } catch (err) {
     console.warn("[build] wmn-data.json not found at src/data/, skipping copy");
   }
+
+  // Copy Maigret runner script to dist (needed by services/maigret.ts)
+  const runnerSrc = path.resolve(artifactDir, "../../scripts/maigret_runner.py");
+  const scriptsDstDir = path.resolve(distDir, "scripts");
+  await mkdir(scriptsDstDir, { recursive: true });
+  try {
+    await copyFile(runnerSrc, path.join(scriptsDstDir, "maigret_runner.py"));
+    console.log("[build] copied maigret_runner.py to dist/scripts/");
+  } catch (err) {
+    console.warn(`[build] maigret_runner.py not found at ${runnerSrc}, skipping copy (Maigret will be unavailable)`);
+  }
 }
 
 buildAll().catch((err) => {

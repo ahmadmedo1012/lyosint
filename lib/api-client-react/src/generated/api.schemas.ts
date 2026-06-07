@@ -301,6 +301,25 @@ export interface EmailRep {
   details?: EmailRepDetails;
 }
 
+export type MaigretProfileExtra = {[key: string]: string};
+
+export interface MaigretProfile {
+  site?: string;
+  /** @nullable */
+  url?: string | null;
+  category?: string;
+  /** @nullable */
+  httpStatus?: number | null;
+  detectionMethod?: string;
+  /** @nullable */
+  fullname?: string | null;
+  /** @nullable */
+  bio?: string | null;
+  /** @nullable */
+  image?: string | null;
+  extra?: MaigretProfileExtra;
+}
+
 export interface UsernameSummary {
   /** @nullable */
   realName?: string | null;
@@ -333,6 +352,7 @@ export interface UsernameResult {
   profileBio?: string | null;
   /** @nullable */
   profileFullname?: string | null;
+  maigretProfiles?: MaigretProfile[];
   certDomains: string[];
   /** @nullable */
   possibleEmail?: string | null;

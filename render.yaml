@@ -1,13 +1,13 @@
 services:
   - type: pserv
     name: lyosint
-    runtime: node
+    runtime: docker
     plan: starter
     region: oregon
     branch: main
     rootDir: .
-    buildCommand: pnpm install --frozen-lockfile=false && pnpm --filter @workspace/db run push && pnpm run build
-    startCommand: pnpm --filter @workspace/api-server run start
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
