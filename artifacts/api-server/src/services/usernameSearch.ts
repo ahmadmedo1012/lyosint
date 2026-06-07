@@ -14,7 +14,7 @@ export async function runUsernameSearch(id: string, username: string): Promise<v
     const [platformResults, twitchData, wmnResultsRaw] = await Promise.allSettled([
       checkUsername(username),
       lookupTwitchUser(username),
-      checkWhatsMyName(username, { concurrency: 20, perSiteTimeoutMs: 8000 }),
+      checkWhatsMyName(username, { concurrency: 20, perSiteTimeoutMs: 5000, globalTimeoutMs: 30000 }),
     ]);
 
     const results: PlatformResult[] = platformResults.status === "fulfilled" ? platformResults.value : [];

@@ -47,6 +47,7 @@ export interface WMNResult {
 export interface WMNCheckOptions {
   concurrency?: number;
   perSiteTimeoutMs?: number;
+  globalTimeoutMs?: number;
   siteNames?: string[];
   maxSites?: number;
 }
@@ -103,12 +104,19 @@ async function checkOneSite(
   site: WMNSite,
   username: string,
   perSiteTimeoutMs: number,
+  globalSignal?: AbortSignal,
 ): Promise<SiteResult> {
   const url = buildUrl(site.uri_check, username);
   const start = Date.now();
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), perSiteTimeoutMs);
+  // Chain the global signal: when global fires, also abort this request
+  const onGlobalAbort = () => controller.abort();
+  if (globalSignal) {
+    if (globalSignal.aborted) controller.abort();
+    else globalSignal.addEventListener("abort", onGlobalAbort, { once: true });
+  }
 
   try {
     const headers: Record<string, string> = {
@@ -165,6 +173,7 @@ async function checkOneSite(
     };
   } finally {
     clearTimeout(timeout);
+    if (globalSignal) globalSignal.removeEventListener("abort", onGlobalAbort);
   }
 }
 
@@ -210,10 +219,15 @@ export async function checkWhatsMyName(
 
   const concurrency = Math.max(1, Math.min(options.concurrency ?? 20, 50));
   const perSiteTimeoutMs = Math.max(1000, options.perSiteTimeoutMs ?? 8000);
+  const globalTimeoutMs = Math.max(10000, options.globalTimeoutMs ?? 60000);
+
+  // Global timeout: abort all in-flight requests when wall-clock limit hits
+  const globalController = new AbortController();
+  const globalTimeout = setTimeout(() => globalController.abort(), globalTimeoutMs);
 
   const settled = await mapWithConcurrency(sites, concurrency, (s) =>
-    checkOneSite(s, username, perSiteTimeoutMs),
-  );
+    checkOneSite(s, username, perSiteTimeoutMs, globalController.signal),
+  ).finally(() => clearTimeout(globalTimeout));
 
   return settled.map(({ site, found, httpStatus, responseTimeMs, error }) => {
     const detectionMethod: "status_code" | "message" =
