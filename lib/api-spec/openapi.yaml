@@ -322,6 +322,7 @@ components:
 
     NameResult:
       type: object
+      required: [fullName, possibleVariations, usernameVariants, githubUsers, discoveredEmails, searchEngineLinks, socialMedia, libyanPlatforms, sources, dataNote]
       properties:
         fullName:
           type: string
@@ -329,31 +330,38 @@ components:
           type: array
           items:
             type: string
-        phoneNumbers:
+        usernameVariants:
           type: array
           items:
             type: string
-        carrier:
-          type: ["string", "null"]
-        regionHint:
-          type: ["string", "null"]
+        githubUsers:
+          type: array
+          items:
+            $ref: "#/components/schemas/GitHubUserItem"
+        discoveredEmails:
+          type: array
+          items:
+            type: string
+        searchEngineLinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/NamedLink"
         socialMedia:
           $ref: "#/components/schemas/SocialMediaLinks"
-        addresses:
+        libyanPlatforms:
           type: array
           items:
-            type: string
-        associatedNames:
-          type: array
-          items:
-            type: string
+            $ref: "#/components/schemas/NamedLink"
         sources:
           type: array
           items:
             type: string
+        dataNote:
+          type: string
 
     PhoneResult:
       type: object
+      required: [phone, valid, isLibyan, investigativeLinks, messagingApps, dataSource, confidenceScore]
       properties:
         phone:
           type: string
@@ -361,33 +369,72 @@ components:
           type: boolean
         nationalFormat:
           type: ["string", "null"]
+        isLibyan:
+          type: boolean
         carrier:
           type: ["string", "null"]
         lineType:
           type: ["string", "null"]
-        possibleOwner:
-          type: ["string", "null"]
-        possibleOwnerEn:
-          type: ["string", "null"]
         region:
           type: ["string", "null"]
-        whatsapp:
-          type: ["boolean", "null"]
-        telegramRegistered:
-          type: ["boolean", "null"]
-        facebookLinked:
+        countryName:
+          type: ["string", "null"]
+        countryCode:
+          type: ["string", "null"]
+        investigativeLinks:
           type: array
           items:
-            type: string
-        breachInfo:
-          type: array
-          items:
-            type: string
+            $ref: "#/components/schemas/InvestigativeLink"
+        messagingApps:
+          $ref: "#/components/schemas/MessagingApps"
+        dataSource:
+          type: string
         confidenceScore:
-          type: ["number", "null"]
+          type: number
+
+    InvestigativeLink:
+      type: object
+      required: [label, url, type]
+      properties:
+        label: { type: string }
+        url: { type: string }
+        type: { type: string }
+
+    MessagingAppStatus:
+      type: object
+      required: [available, url, note]
+      properties:
+        available:
+          type: ["boolean", "null"]
+        url: { type: string }
+        note: { type: string }
+
+    MessagingApps:
+      type: object
+      required: [whatsapp, telegram]
+      properties:
+        whatsapp: { $ref: "#/components/schemas/MessagingAppStatus" }
+        telegram: { $ref: "#/components/schemas/MessagingAppStatus" }
+
+    NamedLink:
+      type: object
+      required: [label, url]
+      properties:
+        label: { type: string }
+        url: { type: string }
+
+    GitHubUserItem:
+      type: object
+      required: [login, avatar, url, type]
+      properties:
+        login: { type: string }
+        avatar: { type: string }
+        url: { type: string }
+        type: { type: string }
 
     UsernameResult:
       type: object
+      required: [username, totalPlatformsSearched, totalFound, verifiedFound, breaches, certDomains, summary]
       properties:
         username:
           type: string
@@ -399,10 +446,111 @@ components:
           type: integer
         totalFound:
           type: integer
+        verifiedFound:
+          type: integer
+        githubProfile:
+          $ref: "#/components/schemas/GitHubProfile"
+        breaches:
+          type: array
+          items:
+            $ref: "#/components/schemas/BreachEntry"
+        emailRep:
+          $ref: "#/components/schemas/EmailRep"
+        certDomains:
+          type: array
+          items:
+            type: string
         possibleEmail:
           type: ["string", "null"]
         possiblePhone:
           type: ["string", "null"]
+        summary:
+          $ref: "#/components/schemas/UsernameSummary"
+
+    GitHubProfile:
+      type: object
+      properties:
+        login: { type: string }
+        name: { type: ["string", "null"] }
+        bio: { type: ["string", "null"] }
+        company: { type: ["string", "null"] }
+        location: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        blog: { type: ["string", "null"] }
+        twitterUsername: { type: ["string", "null"] }
+        avatar: { type: string }
+        followers: { type: integer }
+        following: { type: integer }
+        publicRepos: { type: integer }
+        publicGists: { type: integer }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        hireable: { type: ["boolean", "null"] }
+        profileUrl: { type: string }
+        topRepos:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              description: { type: ["string", "null"] }
+              language: { type: ["string", "null"] }
+              stars: { type: integer }
+              forks: { type: integer }
+              url: { type: string }
+        languages:
+          type: array
+          items: { type: string }
+        organizations:
+          type: array
+          items: { type: string }
+        totalStars: { type: integer }
+        rateLimit:
+          type: ["object", "null"]
+          properties:
+            remaining: { type: integer }
+            limit: { type: integer }
+
+    BreachEntry:
+      type: object
+      properties:
+        name: { type: string }
+        breachDate: { type: string }
+        dataClasses:
+          type: array
+          items: { type: string }
+
+    EmailRep:
+      type: object
+      properties:
+        email: { type: string }
+        reputation:
+          type: string
+          enum: [high, medium, low, none]
+        suspicious: { type: boolean }
+        references: { type: integer }
+        details:
+          type: object
+          properties:
+            blacklisted: { type: boolean }
+            maliciousActivity: { type: boolean }
+            credentialLeaked: { type: boolean }
+            dataBreaches: { type: integer }
+            firstSeen: { type: ["string", "null"] }
+            lastSeen: { type: ["string", "null"] }
+            domainReputation: { type: string }
+
+    UsernameSummary:
+      type: object
+      properties:
+        realName: { type: ["string", "null"] }
+        location: { type: ["string", "null"] }
+        bio: { type: ["string", "null"] }
+        languages:
+          type: array
+          items: { type: string }
+        totalRepos: { type: ["integer", "null"] }
+        totalStars: { type: ["integer", "null"] }
 
     PlatformProfile:
       type: object

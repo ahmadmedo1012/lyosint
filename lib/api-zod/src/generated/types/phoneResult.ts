@@ -5,28 +5,27 @@
  * LYOSINT Libya OSINT investigation platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { InvestigativeLink } from './investigativeLink';
+import type { MessagingApps } from './messagingApps';
 
 export interface PhoneResult {
-  phone?: string;
-  valid?: boolean;
+  phone: string;
+  valid: boolean;
   /** @nullable */
   nationalFormat?: string | null;
+  isLibyan: boolean;
   /** @nullable */
   carrier?: string | null;
   /** @nullable */
   lineType?: string | null;
   /** @nullable */
-  possibleOwner?: string | null;
-  /** @nullable */
-  possibleOwnerEn?: string | null;
-  /** @nullable */
   region?: string | null;
   /** @nullable */
-  whatsapp?: boolean | null;
+  countryName?: string | null;
   /** @nullable */
-  telegramRegistered?: boolean | null;
-  facebookLinked?: string[];
-  breachInfo?: string[];
-  /** @nullable */
-  confidenceScore?: number | null;
+  countryCode?: string | null;
+  investigativeLinks: InvestigativeLink[];
+  messagingApps: MessagingApps;
+  dataSource: string;
+  confidenceScore: number;
 }

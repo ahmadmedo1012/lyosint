@@ -47,3 +47,12 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Render
+.render/
+render-build.log
+
+# Env
+.env
+.env.local
+.env.production

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
-import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 
 export interface AuthUser {
   id: string;
@@ -28,12 +28,22 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 const TOKEN_KEY = "lyosint_session";
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const VITE_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "");
+
+setBaseUrl(API_BASE || null);
+
+function buildUrl(path: string): string {
+  if (API_BASE) {
+    return `${API_BASE}${path}`;
+  }
+  return `${VITE_BASE}${path}`;
+}
 
 async function apiFetch(path: string, options: RequestInit = {}, token?: string | null) {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(buildUrl(path), {
     ...options,
     headers: { ...headers, ...(options.headers as Record<string, string> ?? {}) },
   });

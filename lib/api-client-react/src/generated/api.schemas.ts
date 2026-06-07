@@ -103,6 +103,18 @@ export const SearchResultStatus = {
   failed: 'failed',
 } as const;
 
+export interface GitHubUserItem {
+  login: string;
+  avatar: string;
+  url: string;
+  type: string;
+}
+
+export interface NamedLink {
+  label: string;
+  url: string;
+}
+
 export interface SocialMediaLinks {
   facebook?: string[];
   telegram?: string[];
@@ -113,42 +125,56 @@ export interface SocialMediaLinks {
 }
 
 export interface NameResult {
-  fullName?: string;
-  possibleVariations?: string[];
-  phoneNumbers?: string[];
+  fullName: string;
+  possibleVariations: string[];
+  usernameVariants: string[];
+  githubUsers: GitHubUserItem[];
+  discoveredEmails: string[];
+  searchEngineLinks: NamedLink[];
+  socialMedia: SocialMediaLinks;
+  libyanPlatforms: NamedLink[];
+  sources: string[];
+  dataNote: string;
+}
+
+export interface InvestigativeLink {
+  label: string;
+  url: string;
+  type: string;
+}
+
+export interface MessagingAppStatus {
   /** @nullable */
-  carrier?: string | null;
-  /** @nullable */
-  regionHint?: string | null;
-  socialMedia?: SocialMediaLinks;
-  addresses?: string[];
-  associatedNames?: string[];
-  sources?: string[];
+  available: boolean | null;
+  url: string;
+  note: string;
+}
+
+export interface MessagingApps {
+  whatsapp: MessagingAppStatus;
+  telegram: MessagingAppStatus;
 }
 
 export interface PhoneResult {
-  phone?: string;
-  valid?: boolean;
+  phone: string;
+  valid: boolean;
   /** @nullable */
   nationalFormat?: string | null;
+  isLibyan: boolean;
   /** @nullable */
   carrier?: string | null;
   /** @nullable */
   lineType?: string | null;
   /** @nullable */
-  possibleOwner?: string | null;
-  /** @nullable */
-  possibleOwnerEn?: string | null;
-  /** @nullable */
   region?: string | null;
   /** @nullable */
-  whatsapp?: boolean | null;
+  countryName?: string | null;
   /** @nullable */
-  telegramRegistered?: boolean | null;
-  facebookLinked?: string[];
-  breachInfo?: string[];
-  /** @nullable */
-  confidenceScore?: number | null;
+  countryCode?: string | null;
+  investigativeLinks: InvestigativeLink[];
+  messagingApps: MessagingApps;
+  dataSource: string;
+  confidenceScore: number;
 }
 
 export interface PlatformProfile {
@@ -165,17 +191,126 @@ export interface PlatformProfile {
   confidence?: string | null;
 }
 
+export type GitHubProfileTopReposItem = {
+  name?: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  language?: string | null;
+  stars?: number;
+  forks?: number;
+  url?: string;
+};
+
+/**
+ * @nullable
+ */
+export type GitHubProfileRateLimit = {
+  remaining?: number;
+  limit?: number;
+} | null;
+
+export interface GitHubProfile {
+  login?: string;
+  /** @nullable */
+  name?: string | null;
+  /** @nullable */
+  bio?: string | null;
+  /** @nullable */
+  company?: string | null;
+  /** @nullable */
+  location?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  blog?: string | null;
+  /** @nullable */
+  twitterUsername?: string | null;
+  avatar?: string;
+  followers?: number;
+  following?: number;
+  publicRepos?: number;
+  publicGists?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  /** @nullable */
+  hireable?: boolean | null;
+  profileUrl?: string;
+  topRepos?: GitHubProfileTopReposItem[];
+  languages?: string[];
+  organizations?: string[];
+  totalStars?: number;
+  /** @nullable */
+  rateLimit?: GitHubProfileRateLimit;
+}
+
+export interface BreachEntry {
+  name?: string;
+  breachDate?: string;
+  dataClasses?: string[];
+}
+
+export type EmailRepReputation = typeof EmailRepReputation[keyof typeof EmailRepReputation];
+
+
+export const EmailRepReputation = {
+  high: 'high',
+  medium: 'medium',
+  low: 'low',
+  none: 'none',
+} as const;
+
+export type EmailRepDetails = {
+  blacklisted?: boolean;
+  maliciousActivity?: boolean;
+  credentialLeaked?: boolean;
+  dataBreaches?: number;
+  /** @nullable */
+  firstSeen?: string | null;
+  /** @nullable */
+  lastSeen?: string | null;
+  domainReputation?: string;
+};
+
+export interface EmailRep {
+  email?: string;
+  reputation?: EmailRepReputation;
+  suspicious?: boolean;
+  references?: number;
+  details?: EmailRepDetails;
+}
+
+export interface UsernameSummary {
+  /** @nullable */
+  realName?: string | null;
+  /** @nullable */
+  location?: string | null;
+  /** @nullable */
+  bio?: string | null;
+  languages?: string[];
+  /** @nullable */
+  totalRepos?: number | null;
+  /** @nullable */
+  totalStars?: number | null;
+}
+
 export type UsernameResultProfilesFound = {[key: string]: PlatformProfile};
 
 export interface UsernameResult {
-  username?: string;
+  username: string;
   profilesFound?: UsernameResultProfilesFound;
-  totalPlatformsSearched?: number;
-  totalFound?: number;
+  totalPlatformsSearched: number;
+  totalFound: number;
+  verifiedFound: number;
+  githubProfile?: GitHubProfile;
+  breaches: BreachEntry[];
+  emailRep?: EmailRep;
+  certDomains: string[];
   /** @nullable */
   possibleEmail?: string | null;
   /** @nullable */
   possiblePhone?: string | null;
+  summary: UsernameSummary;
 }
 
 export interface SearchResult {

@@ -6,11 +6,7 @@ import { getSetting } from "./settingsService";
 
 const UA = "LYOSINT-OSINT-Bot/3.0";
 
-interface GHHeaders extends Record<string, string> {
-  "User-Agent": string;
-  Accept: string;
-  Authorization?: string;
-}
+type GHHeaders = Record<string, string>;
 
 async function ghFetch(path: string, token?: string): Promise<unknown> {
   const headers: GHHeaders = {

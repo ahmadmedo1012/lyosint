@@ -5,18 +5,19 @@
  * LYOSINT Libya OSINT investigation platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { GitHubUserItem } from './gitHubUserItem';
+import type { NamedLink } from './namedLink';
 import type { SocialMediaLinks } from './socialMediaLinks';
 
 export interface NameResult {
-  fullName?: string;
-  possibleVariations?: string[];
-  phoneNumbers?: string[];
-  /** @nullable */
-  carrier?: string | null;
-  /** @nullable */
-  regionHint?: string | null;
-  socialMedia?: SocialMediaLinks;
-  addresses?: string[];
-  associatedNames?: string[];
-  sources?: string[];
+  fullName: string;
+  possibleVariations: string[];
+  usernameVariants: string[];
+  githubUsers: GitHubUserItem[];
+  discoveredEmails: string[];
+  searchEngineLinks: NamedLink[];
+  socialMedia: SocialMediaLinks;
+  libyanPlatforms: NamedLink[];
+  sources: string[];
+  dataNote: string;
 }

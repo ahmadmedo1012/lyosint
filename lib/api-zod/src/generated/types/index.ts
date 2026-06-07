@@ -6,9 +6,21 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './breachEntry';
 export * from './deepSearchInput';
+export * from './emailRep';
+export * from './emailRepDetails';
+export * from './emailRepReputation';
+export * from './gitHubProfile';
+export * from './gitHubProfileRateLimit';
+export * from './gitHubProfileTopReposItem';
+export * from './gitHubUserItem';
 export * from './healthStatus';
+export * from './investigativeLink';
 export * from './listRecentSearchesParams';
+export * from './messagingApps';
+export * from './messagingAppStatus';
+export * from './namedLink';
 export * from './nameResult';
 export * from './nameSearchInput';
 export * from './phoneResult';
@@ -31,3 +43,4 @@ export * from './socialMediaLinks';
 export * from './usernameResult';
 export * from './usernameResultProfilesFound';
 export * from './usernameSearchInput';
+export * from './usernameSummary';

@@ -5,15 +5,25 @@
  * LYOSINT Libya OSINT investigation platform API
  * OpenAPI spec version: 0.1.0
  */
+import type { BreachEntry } from './breachEntry';
+import type { EmailRep } from './emailRep';
+import type { GitHubProfile } from './gitHubProfile';
 import type { UsernameResultProfilesFound } from './usernameResultProfilesFound';
+import type { UsernameSummary } from './usernameSummary';
 
 export interface UsernameResult {
-  username?: string;
+  username: string;
   profilesFound?: UsernameResultProfilesFound;
-  totalPlatformsSearched?: number;
-  totalFound?: number;
+  totalPlatformsSearched: number;
+  totalFound: number;
+  verifiedFound: number;
+  githubProfile?: GitHubProfile;
+  breaches: BreachEntry[];
+  emailRep?: EmailRep;
+  certDomains: string[];
   /** @nullable */
   possibleEmail?: string | null;
   /** @nullable */
   possiblePhone?: string | null;
+  summary: UsernameSummary;
 }

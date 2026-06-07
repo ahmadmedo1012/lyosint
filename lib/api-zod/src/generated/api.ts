@@ -84,11 +84,20 @@ export const GetSearchResultResponse = zod.object({
   "createdAt": zod.string(),
   "completedAt": zod.string().nullish(),
   "nameResult": zod.object({
-  "fullName": zod.string().optional(),
-  "possibleVariations": zod.array(zod.string()).optional(),
-  "phoneNumbers": zod.array(zod.string()).optional(),
-  "carrier": zod.string().nullish(),
-  "regionHint": zod.string().nullish(),
+  "fullName": zod.string(),
+  "possibleVariations": zod.array(zod.string()),
+  "usernameVariants": zod.array(zod.string()),
+  "githubUsers": zod.array(zod.object({
+  "login": zod.string(),
+  "avatar": zod.string(),
+  "url": zod.string(),
+  "type": zod.string()
+})),
+  "discoveredEmails": zod.array(zod.string()),
+  "searchEngineLinks": zod.array(zod.object({
+  "label": zod.string(),
+  "url": zod.string()
+})),
   "socialMedia": zod.object({
   "facebook": zod.array(zod.string()).optional(),
   "telegram": zod.array(zod.string()).optional(),
@@ -96,28 +105,46 @@ export const GetSearchResultResponse = zod.object({
   "instagram": zod.array(zod.string()).optional(),
   "linkedin": zod.array(zod.string()).optional(),
   "tiktok": zod.array(zod.string()).optional()
-}).optional(),
-  "addresses": zod.array(zod.string()).optional(),
-  "associatedNames": zod.array(zod.string()).optional(),
-  "sources": zod.array(zod.string()).optional()
+}),
+  "libyanPlatforms": zod.array(zod.object({
+  "label": zod.string(),
+  "url": zod.string()
+})),
+  "sources": zod.array(zod.string()),
+  "dataNote": zod.string()
 }).optional(),
   "phoneResult": zod.object({
-  "phone": zod.string().optional(),
-  "valid": zod.boolean().optional(),
+  "phone": zod.string(),
+  "valid": zod.boolean(),
   "nationalFormat": zod.string().nullish(),
+  "isLibyan": zod.boolean(),
   "carrier": zod.string().nullish(),
   "lineType": zod.string().nullish(),
-  "possibleOwner": zod.string().nullish(),
-  "possibleOwnerEn": zod.string().nullish(),
   "region": zod.string().nullish(),
-  "whatsapp": zod.boolean().nullish(),
-  "telegramRegistered": zod.boolean().nullish(),
-  "facebookLinked": zod.array(zod.string()).optional(),
-  "breachInfo": zod.array(zod.string()).optional(),
-  "confidenceScore": zod.number().nullish()
+  "countryName": zod.string().nullish(),
+  "countryCode": zod.string().nullish(),
+  "investigativeLinks": zod.array(zod.object({
+  "label": zod.string(),
+  "url": zod.string(),
+  "type": zod.string()
+})),
+  "messagingApps": zod.object({
+  "whatsapp": zod.object({
+  "available": zod.boolean().nullable(),
+  "url": zod.string(),
+  "note": zod.string()
+}),
+  "telegram": zod.object({
+  "available": zod.boolean().nullable(),
+  "url": zod.string(),
+  "note": zod.string()
+})
+}),
+  "dataSource": zod.string(),
+  "confidenceScore": zod.number()
 }).optional(),
   "usernameResult": zod.object({
-  "username": zod.string().optional(),
+  "username": zod.string(),
   "profilesFound": zod.record(zod.string(), zod.object({
   "url": zod.string().nullish(),
   "exists": zod.boolean().optional(),
@@ -126,10 +153,74 @@ export const GetSearchResultResponse = zod.object({
   "displayName": zod.string().nullish(),
   "confidence": zod.string().nullish()
 })).optional(),
-  "totalPlatformsSearched": zod.number().optional(),
-  "totalFound": zod.number().optional(),
+  "totalPlatformsSearched": zod.number(),
+  "totalFound": zod.number(),
+  "verifiedFound": zod.number(),
+  "githubProfile": zod.object({
+  "login": zod.string().optional(),
+  "name": zod.string().nullish(),
+  "bio": zod.string().nullish(),
+  "company": zod.string().nullish(),
+  "location": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "blog": zod.string().nullish(),
+  "twitterUsername": zod.string().nullish(),
+  "avatar": zod.string().optional(),
+  "followers": zod.number().optional(),
+  "following": zod.number().optional(),
+  "publicRepos": zod.number().optional(),
+  "publicGists": zod.number().optional(),
+  "createdAt": zod.string().optional(),
+  "updatedAt": zod.string().optional(),
+  "hireable": zod.boolean().nullish(),
+  "profileUrl": zod.string().optional(),
+  "topRepos": zod.array(zod.object({
+  "name": zod.string().optional(),
+  "description": zod.string().nullish(),
+  "language": zod.string().nullish(),
+  "stars": zod.number().optional(),
+  "forks": zod.number().optional(),
+  "url": zod.string().optional()
+})).optional(),
+  "languages": zod.array(zod.string()).optional(),
+  "organizations": zod.array(zod.string()).optional(),
+  "totalStars": zod.number().optional(),
+  "rateLimit": zod.object({
+  "remaining": zod.number().optional(),
+  "limit": zod.number().optional()
+}).nullish()
+}).optional(),
+  "breaches": zod.array(zod.object({
+  "name": zod.string().optional(),
+  "breachDate": zod.string().optional(),
+  "dataClasses": zod.array(zod.string()).optional()
+})),
+  "emailRep": zod.object({
+  "email": zod.string().optional(),
+  "reputation": zod.enum(['high', 'medium', 'low', 'none']).optional(),
+  "suspicious": zod.boolean().optional(),
+  "references": zod.number().optional(),
+  "details": zod.object({
+  "blacklisted": zod.boolean().optional(),
+  "maliciousActivity": zod.boolean().optional(),
+  "credentialLeaked": zod.boolean().optional(),
+  "dataBreaches": zod.number().optional(),
+  "firstSeen": zod.string().nullish(),
+  "lastSeen": zod.string().nullish(),
+  "domainReputation": zod.string().optional()
+}).optional()
+}).optional(),
+  "certDomains": zod.array(zod.string()),
   "possibleEmail": zod.string().nullish(),
-  "possiblePhone": zod.string().nullish()
+  "possiblePhone": zod.string().nullish(),
+  "summary": zod.object({
+  "realName": zod.string().nullish(),
+  "location": zod.string().nullish(),
+  "bio": zod.string().nullish(),
+  "languages": zod.array(zod.string()).optional(),
+  "totalRepos": zod.number().nullish(),
+  "totalStars": zod.number().nullish()
+})
 }).optional(),
   "confidenceScore": zod.number().nullish()
 })

@@ -25,10 +25,22 @@ app.use(
     },
   }),
 );
-app.use(cors());
-app.use(express.json());
+
+const corsOrigin = process.env["CORS_ORIGIN"]?.trim();
+app.use(
+  cors({
+    origin: corsOrigin && corsOrigin !== "*" ? corsOrigin.split(",").map((o) => o.trim()) : corsOrigin === "*" ? true : true,
+    credentials: true,
+  }),
+);
+
+app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+app.get("/", (_req, res) => {
+  res.json({ name: "LYOSINT API", version: "0.1.0", docs: "/api/health" });
+});
 
 export default app;
