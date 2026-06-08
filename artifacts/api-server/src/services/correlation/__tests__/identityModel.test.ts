@@ -60,14 +60,21 @@ describe('Identity Model', () => {
       expect(identity1.normalizedEmail).toBe('abc@gmail.com');
     });
 
-    it('should normalize email for non-Gmail domains without dot-normalization', () => {
-      const identity = new Identity({
+    it('should normalize email for all domains by removing dots from local part', () => {
+      const identity1 = new Identity({
         source: 'email',
         username: 'user',
         email: 'a.b.c@example.com',
       });
 
-      expect(identity.normalizedEmail).toBe('a.b.c@example.com');
+      const identity2 = new Identity({
+        source: 'email',
+        username: 'user',
+        email: 'abc@example.com',
+      });
+
+      expect(identity1.normalizedEmail).toBe(identity2.normalizedEmail);
+      expect(identity1.normalizedEmail).toBe('abc@example.com');
     });
 
     it('should normalize display name: lowercase, remove special chars and spaces', () => {
@@ -157,7 +164,7 @@ describe('Identity Model', () => {
 
 describe('IdentityCluster', () => {
   describe('Cluster Creation and Evidence Management', () => {
-    it('should create a cluster with multiple identities', () => {
+    it('should create a cluster with a unique id', () => {
       const identity1 = new Identity({
         source: 'twitter',
         username: 'john_doe',
@@ -170,8 +177,27 @@ describe('IdentityCluster', () => {
 
       const cluster = new IdentityCluster([identity1, identity2]);
 
+      expect(cluster.id).toBeDefined();
+      expect(typeof cluster.id).toBe('string');
       expect(cluster.identities).toHaveLength(2);
       expect(cluster.evidence).toHaveLength(0);
+    });
+
+    it('should generate unique ids for different clusters', () => {
+      const identity1 = new Identity({
+        source: 'twitter',
+        username: 'user1',
+      });
+
+      const identity2 = new Identity({
+        source: 'github',
+        username: 'user2',
+      });
+
+      const cluster1 = new IdentityCluster([identity1]);
+      const cluster2 = new IdentityCluster([identity2]);
+
+      expect(cluster1.id).not.toBe(cluster2.id);
     });
 
     it('should add evidence to the cluster', () => {

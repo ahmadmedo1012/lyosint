@@ -92,20 +92,19 @@ export class Identity {
   }
 
   /**
-   * Normalize email: handle dot-normalization for Gmail addresses
-   * For Gmail: a.b.c@gmail.com becomes abc@gmail.com
-   * For other domains: no dot normalization
+   * Normalize email: remove dots from local part for all domains
+   * Example: a.b.c@example.com becomes abc@example.com
    */
   private normalizeEmail(email: string): string {
     const lowerEmail = email.toLowerCase().trim();
+    const [localPart, domain] = lowerEmail.split('@');
 
-    if (lowerEmail.endsWith('@gmail.com')) {
-      const [localPart, domain] = lowerEmail.split('@');
-      const normalizedLocal = localPart.replace(/\./g, '');
-      return `${normalizedLocal}@${domain}`;
+    if (!localPart || !domain) {
+      return lowerEmail;
     }
 
-    return lowerEmail;
+    const normalizedLocal = localPart.replace(/\./g, '');
+    return `${normalizedLocal}@${domain}`;
   }
 
   /**
@@ -178,10 +177,12 @@ export interface CorrelationEvidence {
  * Represents a cluster of correlated identities
  */
 export class IdentityCluster {
+  readonly id: string;
   readonly identities: Identity[];
   readonly evidence: CorrelationEvidence[];
 
   constructor(identities: Identity[]) {
+    this.id = randomUUID();
     this.identities = identities;
     this.evidence = [];
   }
