@@ -82,25 +82,41 @@ export class Identity {
   }
 
   /**
-   * Normalize username: lowercase + remove special chars + remove spaces
+   * Normalize text: lowercase + remove special chars + trim
+   * Used by username, display name, and bio normalization
    */
-  private normalizeUsername(username: string): string {
-    return username
+  private normalizeText(text: string): string {
+    return text
       .toLowerCase()
       .replace(/[^a-z0-9]/g, '')
       .trim();
   }
 
   /**
+   * Normalize username: uses normalizeText for consistency
+   */
+  private normalizeUsername(username: string): string {
+    return this.normalizeText(username);
+  }
+
+  /**
    * Normalize email: remove dots from local part for all domains
    * Example: a.b.c@example.com becomes abc@example.com
+   * Invalid emails (0 or 2+ @ symbols) return empty string
    */
   private normalizeEmail(email: string): string {
     const lowerEmail = email.toLowerCase().trim();
-    const [localPart, domain] = lowerEmail.split('@');
+    const parts = lowerEmail.split('@');
+
+    // Email must have exactly 1 @ symbol (resulting in 2 parts)
+    if (parts.length !== 2) {
+      return '';
+    }
+
+    const [localPart, domain] = parts;
 
     if (!localPart || !domain) {
-      return lowerEmail;
+      return '';
     }
 
     const normalizedLocal = localPart.replace(/\./g, '');
@@ -108,23 +124,17 @@ export class Identity {
   }
 
   /**
-   * Normalize display name: lowercase + remove special chars + remove spaces
+   * Normalize display name: uses normalizeText for consistency
    */
   private normalizeDisplayName(displayName: string): string {
-    return displayName
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '')
-      .trim();
+    return this.normalizeText(displayName);
   }
 
   /**
-   * Normalize bio: lowercase + remove special chars + remove spaces
+   * Normalize bio: uses normalizeText for consistency
    */
   private normalizeBio(bio: string): string {
-    return bio
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '')
-      .trim();
+    return this.normalizeText(bio);
   }
 
   /**

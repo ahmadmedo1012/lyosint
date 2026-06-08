@@ -77,6 +77,26 @@ describe('Identity Model', () => {
       expect(identity1.normalizedEmail).toBe('abc@example.com');
     });
 
+    it('should return empty string for malformed email with multiple @ symbols', () => {
+      const identity = new Identity({
+        source: 'email',
+        username: 'user',
+        email: 'a@b@c.com',
+      });
+
+      expect(identity.normalizedEmail).toBe('');
+    });
+
+    it('should return empty string for email with no @ symbol', () => {
+      const identity = new Identity({
+        source: 'email',
+        username: 'user',
+        email: 'notanemail.com',
+      });
+
+      expect(identity.normalizedEmail).toBe('');
+    });
+
     it('should normalize display name: lowercase, remove special chars and spaces', () => {
       const identity = new Identity({
         source: 'facebook',
