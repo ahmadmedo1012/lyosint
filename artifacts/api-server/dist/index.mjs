@@ -505,6 +505,121 @@ var require_browser = __commonJS({
   }
 });
 
+// ../../node_modules/.pnpm/has-flag@4.0.0/node_modules/has-flag/index.js
+var require_has_flag = __commonJS({
+  "../../node_modules/.pnpm/has-flag@4.0.0/node_modules/has-flag/index.js"(exports, module) {
+    "use strict";
+    module.exports = (flag, argv = process.argv) => {
+      const prefix = flag.startsWith("-") ? "" : flag.length === 1 ? "-" : "--";
+      const position = argv.indexOf(prefix + flag);
+      const terminatorPosition = argv.indexOf("--");
+      return position !== -1 && (terminatorPosition === -1 || position < terminatorPosition);
+    };
+  }
+});
+
+// ../../node_modules/.pnpm/supports-color@7.2.0/node_modules/supports-color/index.js
+var require_supports_color = __commonJS({
+  "../../node_modules/.pnpm/supports-color@7.2.0/node_modules/supports-color/index.js"(exports, module) {
+    "use strict";
+    var os = __require("os");
+    var tty = __require("tty");
+    var hasFlag = require_has_flag();
+    var { env } = process;
+    var forceColor;
+    if (hasFlag("no-color") || hasFlag("no-colors") || hasFlag("color=false") || hasFlag("color=never")) {
+      forceColor = 0;
+    } else if (hasFlag("color") || hasFlag("colors") || hasFlag("color=true") || hasFlag("color=always")) {
+      forceColor = 1;
+    }
+    if ("FORCE_COLOR" in env) {
+      if (env.FORCE_COLOR === "true") {
+        forceColor = 1;
+      } else if (env.FORCE_COLOR === "false") {
+        forceColor = 0;
+      } else {
+        forceColor = env.FORCE_COLOR.length === 0 ? 1 : Math.min(parseInt(env.FORCE_COLOR, 10), 3);
+      }
+    }
+    function translateLevel(level) {
+      if (level === 0) {
+        return false;
+      }
+      return {
+        level,
+        hasBasic: true,
+        has256: level >= 2,
+        has16m: level >= 3
+      };
+    }
+    function supportsColor(haveStream, streamIsTTY) {
+      if (forceColor === 0) {
+        return 0;
+      }
+      if (hasFlag("color=16m") || hasFlag("color=full") || hasFlag("color=truecolor")) {
+        return 3;
+      }
+      if (hasFlag("color=256")) {
+        return 2;
+      }
+      if (haveStream && !streamIsTTY && forceColor === void 0) {
+        return 0;
+      }
+      const min = forceColor || 0;
+      if (env.TERM === "dumb") {
+        return min;
+      }
+      if (process.platform === "win32") {
+        const osRelease = os.release().split(".");
+        if (Number(osRelease[0]) >= 10 && Number(osRelease[2]) >= 10586) {
+          return Number(osRelease[2]) >= 14931 ? 3 : 2;
+        }
+        return 1;
+      }
+      if ("CI" in env) {
+        if (["TRAVIS", "CIRCLECI", "APPVEYOR", "GITLAB_CI", "GITHUB_ACTIONS", "BUILDKITE"].some((sign) => sign in env) || env.CI_NAME === "codeship") {
+          return 1;
+        }
+        return min;
+      }
+      if ("TEAMCITY_VERSION" in env) {
+        return /^(9\.(0*[1-9]\d*)\.|\d{2,}\.)/.test(env.TEAMCITY_VERSION) ? 1 : 0;
+      }
+      if (env.COLORTERM === "truecolor") {
+        return 3;
+      }
+      if ("TERM_PROGRAM" in env) {
+        const version3 = parseInt((env.TERM_PROGRAM_VERSION || "").split(".")[0], 10);
+        switch (env.TERM_PROGRAM) {
+          case "iTerm.app":
+            return version3 >= 3 ? 3 : 2;
+          case "Apple_Terminal":
+            return 2;
+        }
+      }
+      if (/-256(color)?$/i.test(env.TERM)) {
+        return 2;
+      }
+      if (/^screen|^xterm|^vt100|^vt220|^rxvt|color|ansi|cygwin|linux/i.test(env.TERM)) {
+        return 1;
+      }
+      if ("COLORTERM" in env) {
+        return 1;
+      }
+      return min;
+    }
+    function getSupportLevel(stream) {
+      const level = supportsColor(stream, stream && stream.isTTY);
+      return translateLevel(level);
+    }
+    module.exports = {
+      supportsColor: getSupportLevel,
+      stdout: translateLevel(supportsColor(true, tty.isatty(1))),
+      stderr: translateLevel(supportsColor(true, tty.isatty(2)))
+    };
+  }
+});
+
 // ../../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/node.js
 var require_node = __commonJS({
   "../../node_modules/.pnpm/debug@4.4.3/node_modules/debug/src/node.js"(exports, module) {
@@ -523,7 +638,7 @@ var require_node = __commonJS({
     );
     exports.colors = [6, 2, 3, 4, 5, 1];
     try {
-      const supportsColor = __require("supports-color");
+      const supportsColor = require_supports_color();
       if (supportsColor && (supportsColor.stderr || supportsColor).level >= 2) {
         exports.colors = [
           20,
@@ -41399,7 +41514,7 @@ var PgDialect = class {
     table,
     joins,
     orderBy,
-    groupBy,
+    groupBy: groupBy2,
     limit,
     offset,
     lockingClause,
@@ -41433,8 +41548,8 @@ var PgDialect = class {
       orderBySql = sql` order by ${sql.join(orderBy, sql`, `)}`;
     }
     let groupBySql;
-    if (groupBy && groupBy.length > 0) {
-      groupBySql = sql` group by ${sql.join(groupBy, sql`, `)}`;
+    if (groupBy2 && groupBy2.length > 0) {
+      groupBySql = sql` group by ${sql.join(groupBy2, sql`, `)}`;
     }
     const limitSql = typeof limit === "object" || typeof limit === "number" && limit >= 0 ? sql` limit ${limit}` : void 0;
     const offsetSql = offset ? sql` offset ${offset}` : void 0;
@@ -42910,13 +43025,13 @@ var PgSelectQueryBuilderBase = class extends TypedQueryBuilder {
   }
   groupBy(...columns) {
     if (typeof columns[0] === "function") {
-      const groupBy = columns[0](
+      const groupBy2 = columns[0](
         new Proxy(
           this.config.fields,
           new SelectionProxyHandler({ sqlAliasedBehavior: "alias", sqlBehavior: "sql" })
         )
       );
-      this.config.groupBy = Array.isArray(groupBy) ? groupBy : [groupBy];
+      this.config.groupBy = Array.isArray(groupBy2) ? groupBy2 : [groupBy2];
     } else {
       this.config.groupBy = columns;
     }
@@ -60482,6 +60597,397 @@ async function runMaigret(username, options = {}) {
   });
 }
 
+// src/services/correlation/correlationEngine.ts
+var EVIDENCE_WEIGHTS = {
+  usernameExact: 0.35,
+  websiteMatch: 0.22,
+  emailMatch: 0.3,
+  phoneMatch: 0.28,
+  profileImageMatch: 0.25,
+  displayNameMatch: 0.15,
+  nameTokenOverlap: 0.08,
+  bioOverlap: 0.1,
+  locationMatch: 0.09,
+  sourceCorroboration: 0.05,
+  conflictingName: 0.18,
+  conflictingLocation: 0.1,
+  duplicateSource: 0.12,
+  weakSingleSource: 0.12
+};
+function buildIdentityResolutionReport(params) {
+  const observations = dedupeObservations(
+    buildObservations(
+      params.username,
+      params.profilesFound,
+      params.mergedResults,
+      params.maigret,
+      params.twitch,
+      params.githubProfile,
+      params.possibleEmail
+    )
+  );
+  const clusters = clusterObservations(observations);
+  const reports = clusters.map((cluster, index) => scoreCluster(cluster, index + 1));
+  const visible = reports.filter((cluster) => cluster.confidence >= 0.4 || cluster.platforms.length >= 2 && cluster.confidence >= 0.15 || cluster.platforms.length >= 3).sort((a, b) => b.confidence - a.confidence);
+  const suppressedReports = reports.filter((cluster) => !visible.includes(cluster));
+  return {
+    query: params.username,
+    identities: visible,
+    suppressed: {
+      count: suppressedReports.reduce((sum, cluster) => sum + cluster.platforms.length, 0),
+      reason: "\u062A\u0645 \u0625\u062E\u0641\u0627\u0621 \u0627\u0644\u0646\u062A\u0627\u0626\u062C \u0627\u0644\u0636\u0639\u064A\u0641\u0629 \u0644\u0623\u0646\u0647\u0627 \u0644\u0627 \u062A\u0645\u0644\u0643 \u0623\u062F\u0644\u0629 \u0643\u0627\u0641\u064A\u0629 \u062A\u0631\u0628\u0637\u0647\u0627 \u0628\u0647\u0648\u064A\u0629 \u0648\u0627\u062D\u062F\u0629.",
+      platforms: suppressedReports.flatMap((cluster) => cluster.platforms.map((p) => p.platform)).slice(0, 20)
+    },
+    analysisSummary: buildArabicSummary(visible, suppressedReports.length),
+    scoringVersion: "identity-correlation-v1"
+  };
+}
+function buildObservations(username, profilesFound, mergedResults, maigret, twitch, githubProfile, possibleEmail) {
+  const bySlug = new Map(mergedResults.map((r) => [r.slug, r]));
+  const maigretBySlug = new Map((maigret?.found ?? []).map((m) => [slugify2(m.site), m]));
+  const observations = [];
+  for (const [platform, profile] of Object.entries(profilesFound)) {
+    if (!profile?.exists) continue;
+    const result2 = bySlug.get(platform);
+    const m = maigretBySlug.get(platform);
+    const profileData = profile.profileData ?? result2?.profileData ?? {};
+    const displayName = firstString(
+      profile.displayName,
+      profileData.name,
+      profileData.fullName,
+      profileData.fullname,
+      m?.fullname,
+      platform === "twitch" ? twitch?.displayName : null,
+      platform === "github" ? githubProfile?.name : null
+    );
+    const bio = firstString(
+      profile.bio,
+      profileData.bio,
+      profileData.description,
+      profileData.about,
+      m?.bio,
+      platform === "github" ? githubProfile?.bio : null
+    );
+    const location = firstString(
+      profileData.location,
+      profileData.country,
+      platform === "github" ? githubProfile?.location : null
+    );
+    const website = normalizeWebsite(firstString(
+      profileData.website,
+      profileData.blog,
+      platform === "github" ? githubProfile?.blog : null
+    ));
+    const email3 = normalizeEmail(firstString(
+      profileData.email,
+      platform === "github" ? githubProfile?.email : null,
+      platform === "github" ? possibleEmail : null
+    ));
+    const profileImage = normalizeImage(firstString(
+      profileData.avatar,
+      profileData.image,
+      profileData.iconImg,
+      m?.image,
+      platform === "github" ? githubProfile?.avatarUrl : null
+    ));
+    observations.push({
+      id: `${platform}:${profile.url ?? result2?.url ?? observations.length}`,
+      source: sourceFromProfile(profileData, m),
+      platform,
+      url: profile.url ?? result2?.url ?? null,
+      verified: Boolean(profile.verified ?? result2?.verified),
+      username,
+      displayName,
+      bio,
+      website,
+      email: email3,
+      phone: null,
+      location,
+      profileImage,
+      metadata: profileData
+    });
+  }
+  return observations;
+}
+function clusterObservations(observations) {
+  const clusters = [];
+  for (const observation of observations) {
+    const matches = clusters.filter((cluster) => canJoinCluster(observation, cluster));
+    if (matches.length === 0) {
+      clusters.push([observation]);
+      continue;
+    }
+    matches[0].push(observation);
+    for (const extra of matches.slice(1)) {
+      matches[0].push(...extra);
+      clusters.splice(clusters.indexOf(extra), 1);
+    }
+  }
+  return clusters;
+}
+function canJoinCluster(observation, cluster) {
+  return cluster.some((existing) => hasHardCorrelation(observation, existing));
+}
+function hasHardCorrelation(a, b) {
+  if (a.source === b.source && a.platform === b.platform) return false;
+  if (a.email && b.email && a.email === b.email) return true;
+  if (a.phone && b.phone && a.phone === b.phone) return true;
+  if (a.website && b.website && a.website === b.website) return true;
+  if (a.profileImage && b.profileImage && a.profileImage === b.profileImage) return true;
+  if (hasCorroboratedNameMatch(a, b)) return true;
+  return false;
+}
+function hasCorroboratedNameMatch(a, b) {
+  const sameDisplayName = Boolean(
+    a.displayName && b.displayName && normalizeText(a.displayName) === normalizeText(b.displayName)
+  );
+  const sameUsername = Boolean(
+    a.username && b.username && normalizeUsername(a.username) === normalizeUsername(b.username)
+  );
+  return sameUsername && sameDisplayName;
+}
+function scoreCluster(cluster, ordinal) {
+  const evidence = [];
+  const conflicts = [];
+  addSharedEvidence(cluster, evidence);
+  addConflictEvidence(cluster, conflicts);
+  let score = evidence.reduce((sum, item) => sum + item.weight, 0) - conflicts.reduce((sum, item) => sum + item.weight, 0);
+  if (cluster.length === 1) score -= EVIDENCE_WEIGHTS.weakSingleSource;
+  score = Math.max(0, Math.min(0.97, score));
+  const confidence = round2(score);
+  const level = confidenceLevel(confidence);
+  const representative = buildRepresentative(cluster);
+  return {
+    id: `identity-${ordinal}`,
+    label: `Identity ${String.fromCharCode(64 + Math.min(ordinal, 26))}`,
+    confidence,
+    confidencePercent: Math.round(confidence * 100),
+    level,
+    conclusion: conclusionFor(level),
+    platforms: cluster.sort((a, b) => a.platform.localeCompare(b.platform)).map((identity) => ({
+      platform: identity.platform,
+      source: identity.source,
+      url: identity.url,
+      username: identity.username,
+      displayName: identity.displayName,
+      verified: identity.verified
+    })),
+    evidence,
+    conflicts,
+    representative
+  };
+}
+function addSharedEvidence(cluster, evidence) {
+  const usernameGroups = groupBy(cluster, (i) => normalizeUsername(i.username ?? ""));
+  const websiteGroups = groupBy(cluster, (i) => i.website ?? "");
+  const emailGroups = groupBy(cluster, (i) => i.email ?? "");
+  const phoneGroups = groupBy(cluster, (i) => i.phone ?? "");
+  const imageGroups = groupBy(cluster, (i) => i.profileImage ?? "");
+  const displayNameGroups = groupBy(cluster, (i) => normalizeText(i.displayName ?? ""));
+  const locationGroups = groupBy(cluster, (i) => normalizeText(i.location ?? ""));
+  addGroupEvidence(usernameGroups, "username_exact", EVIDENCE_WEIGHTS.usernameExact, "\u062A\u0637\u0627\u0628\u0642 \u0627\u0633\u0645 \u0627\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0628\u0639\u062F \u0627\u0644\u062A\u0637\u0628\u064A\u0639", evidence);
+  addGroupEvidence(websiteGroups, "website_match", EVIDENCE_WEIGHTS.websiteMatch, "\u0646\u0641\u0633 \u0627\u0644\u0645\u0648\u0642\u0639 \u0623\u0648 \u0627\u0644\u0646\u0637\u0627\u0642 \u0645\u0630\u0643\u0648\u0631 \u0641\u064A \u0623\u0643\u062B\u0631 \u0645\u0646 \u062D\u0633\u0627\u0628", evidence);
+  addGroupEvidence(emailGroups, "email_match", EVIDENCE_WEIGHTS.emailMatch, "\u0646\u0641\u0633 \u0627\u0644\u0628\u0631\u064A\u062F \u0638\u0647\u0631 \u0643\u062F\u0644\u064A\u0644 \u062F\u0627\u0639\u0645 \u0639\u0628\u0631 \u0627\u0644\u0645\u0635\u0627\u062F\u0631", evidence);
+  addGroupEvidence(phoneGroups, "phone_match", EVIDENCE_WEIGHTS.phoneMatch, "\u0646\u0641\u0633 \u0631\u0642\u0645 \u0627\u0644\u0647\u0627\u062A\u0641 \u0638\u0647\u0631 \u0643\u062F\u0644\u064A\u0644 \u062F\u0627\u0639\u0645 \u0639\u0628\u0631 \u0627\u0644\u0645\u0635\u0627\u062F\u0631", evidence);
+  addGroupEvidence(imageGroups, "profile_image_match", EVIDENCE_WEIGHTS.profileImageMatch, "\u0646\u0641\u0633 \u0635\u0648\u0631\u0629 \u0627\u0644\u0645\u0644\u0641 \u0627\u0644\u0634\u062E\u0635\u064A \u0623\u0648 \u0631\u0627\u0628\u0637\u0647\u0627", evidence);
+  addGroupEvidence(displayNameGroups, "display_name_match", EVIDENCE_WEIGHTS.displayNameMatch, "\u062A\u0637\u0627\u0628\u0642 \u0627\u0633\u0645 \u0627\u0644\u0639\u0631\u0636", evidence);
+  addGroupEvidence(locationGroups, "location_match", EVIDENCE_WEIGHTS.locationMatch, "\u062A\u0637\u0627\u0628\u0642 \u0627\u0644\u0645\u0648\u0642\u0639 \u0627\u0644\u062C\u063A\u0631\u0627\u0641\u064A \u0627\u0644\u0645\u0639\u0644\u0646", evidence);
+  const nameOverlap = strongestTokenOverlap(cluster.map((i) => tokenSet(i.displayName)));
+  if (nameOverlap >= 0.6) {
+    evidence.push({
+      type: "name_token_overlap",
+      weight: EVIDENCE_WEIGHTS.nameTokenOverlap,
+      description: "\u062A\u0634\u0627\u0628\u0647 \u0642\u0648\u064A \u0641\u064A \u0645\u0643\u0648\u0646\u0627\u062A \u0627\u0644\u0627\u0633\u0645 \u0627\u0644\u0638\u0627\u0647\u0631",
+      platforms: cluster.map((i) => i.platform),
+      polarity: "supporting"
+    });
+  }
+  const bioOverlap = strongestTokenOverlap(cluster.map((i) => tokenSet(i.bio)));
+  if (bioOverlap >= 0.5) {
+    evidence.push({
+      type: "bio_overlap",
+      weight: EVIDENCE_WEIGHTS.bioOverlap,
+      description: "\u062A\u0634\u0627\u0628\u0647 \u0648\u0627\u0636\u062D \u0641\u064A \u0646\u0635\u0648\u0635 \u0627\u0644\u0646\u0628\u0630\u0629 \u0627\u0644\u0639\u0627\u0645\u0629",
+      platforms: cluster.map((i) => i.platform),
+      polarity: "supporting"
+    });
+  }
+  const sourceCount = new Set(cluster.map((i) => i.source)).size;
+  if (sourceCount > 1) {
+    evidence.push({
+      type: "source_corroboration",
+      weight: Math.min(0.15, (sourceCount - 1) * EVIDENCE_WEIGHTS.sourceCorroboration),
+      description: "\u062A\u0623\u0643\u064A\u062F \u0645\u0646 \u0623\u0643\u062B\u0631 \u0645\u0646 \u0623\u062F\u0627\u0629 \u0623\u0648 \u0645\u0635\u062F\u0631 \u062C\u0645\u0639",
+      platforms: cluster.map((i) => i.platform),
+      polarity: "supporting"
+    });
+  }
+}
+function addConflictEvidence(cluster, conflicts) {
+  const names = uniqueMeaningful(cluster.map((i) => normalizeText(i.displayName ?? "")));
+  if (names.length > 1 && !hasTokenOverlapConflictException(cluster.map((i) => i.displayName))) {
+    conflicts.push({
+      type: "conflicting_name",
+      weight: EVIDENCE_WEIGHTS.conflictingName,
+      description: "\u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0639\u0631\u0636 \u0645\u062E\u062A\u0644\u0641\u0629 \u0648\u0644\u0627 \u064A\u0648\u062C\u062F \u062A\u062F\u0627\u062E\u0644 \u0643\u0627\u0641 \u0628\u064A\u0646\u0647\u0627",
+      platforms: cluster.filter((i) => i.displayName).map((i) => i.platform),
+      polarity: "conflicting"
+    });
+  }
+  const locations = uniqueMeaningful(cluster.map((i) => normalizeText(i.location ?? "")));
+  if (locations.length > 1) {
+    conflicts.push({
+      type: "conflicting_location",
+      weight: EVIDENCE_WEIGHTS.conflictingLocation,
+      description: "\u062A\u0648\u062C\u062F \u0645\u0648\u0627\u0642\u0639 \u062C\u063A\u0631\u0627\u0641\u064A\u0629 \u0645\u0639\u0644\u0646\u0629 \u0645\u062A\u0636\u0627\u0631\u0628\u0629",
+      platforms: cluster.filter((i) => i.location).map((i) => i.platform),
+      polarity: "conflicting"
+    });
+  }
+  const duplicateSources = [...groupBy(cluster, (i) => i.platform).values()].filter((items) => items.length > 1);
+  if (duplicateSources.length > 0) {
+    conflicts.push({
+      type: "duplicate_source",
+      weight: EVIDENCE_WEIGHTS.duplicateSource,
+      description: "\u0623\u0643\u062B\u0631 \u0645\u0646 \u062D\u0633\u0627\u0628 \u0645\u0646 \u0646\u0641\u0633 \u0627\u0644\u0645\u0646\u0635\u0629 \u062F\u0627\u062E\u0644 \u0646\u0641\u0633 \u0627\u0644\u0645\u062C\u0645\u0648\u0639\u0629",
+      platforms: duplicateSources.flatMap((items) => items.map((i) => i.platform)),
+      polarity: "caution"
+    });
+  }
+}
+function addGroupEvidence(groups, type, weight, description, evidence) {
+  const matches = [...groups.entries()].filter(([key, items]) => key && items.length > 1);
+  if (matches.length === 0) return;
+  const platforms = [...new Set(matches.flatMap(([, items]) => items.map((i) => i.platform)))];
+  evidence.push({ type, weight, description, platforms, polarity: "supporting" });
+}
+function buildRepresentative(cluster) {
+  const sorted = [...cluster].sort((a, b) => Number(b.verified) - Number(a.verified));
+  return {
+    username: firstString(...sorted.map((i) => i.username)),
+    displayName: firstString(...sorted.map((i) => i.displayName)),
+    bio: firstString(...sorted.map((i) => i.bio)),
+    website: firstString(...sorted.map((i) => i.website)),
+    location: firstString(...sorted.map((i) => i.location)),
+    profileImage: firstString(...sorted.map((i) => i.profileImage))
+  };
+}
+function confidenceLevel(score) {
+  if (score >= 0.9) return "very_high";
+  if (score >= 0.75) return "high";
+  if (score >= 0.55) return "medium";
+  if (score >= 0.4) return "low";
+  if (score >= 0.15) return "weak";
+  return "unrelated";
+}
+function conclusionFor(level) {
+  switch (level) {
+    case "very_high":
+      return "\u0645\u0631\u062C\u062D \u062C\u062F\u0627\u064B \u0623\u0646\u0647\u0627 \u0646\u0641\u0633 \u0627\u0644\u0647\u0648\u064A\u0629.";
+    case "high":
+      return "\u0645\u0631\u062C\u062D \u0623\u0646\u0647\u0627 \u0646\u0641\u0633 \u0627\u0644\u0647\u0648\u064A\u0629 \u0645\u0639 \u0623\u062F\u0644\u0629 \u062F\u0627\u0639\u0645\u0629 \u0642\u0648\u064A\u0629.";
+    case "medium":
+      return "\u0627\u0631\u062A\u0628\u0627\u0637 \u0645\u062D\u062A\u0645\u0644 \u064A\u062D\u062A\u0627\u062C \u0645\u0631\u0627\u062C\u0639\u0629 \u0627\u0644\u0623\u062F\u0644\u0629.";
+    case "low":
+      return "\u0627\u0631\u062A\u0628\u0627\u0637 \u0636\u0639\u064A\u0641 \u0648\u0644\u0627 \u064A\u0643\u0641\u064A \u0644\u0644\u062C\u0632\u0645.";
+    case "weak":
+      return "\u062A\u0634\u0627\u0628\u0647 \u0645\u062D\u062F\u0648\u062F \u0641\u0642\u0637.";
+    default:
+      return "\u063A\u0627\u0644\u0628\u0627\u064B \u063A\u064A\u0631 \u0645\u0631\u062A\u0628\u0637.";
+  }
+}
+function buildArabicSummary(visible, suppressedCount) {
+  if (visible.length === 0) {
+    return suppressedCount > 0 ? "\u0644\u0645 \u062A\u0638\u0647\u0631 \u0645\u062C\u0645\u0648\u0639\u0629 \u0647\u0648\u064A\u0629 \u0645\u0648\u062B\u0648\u0642\u0629\u061B \u062A\u0645 \u0625\u062E\u0641\u0627\u0621 \u0646\u062A\u0627\u0626\u062C \u0636\u0639\u064A\u0641\u0629 \u0644\u062A\u0642\u0644\u064A\u0644 \u0627\u0644\u0625\u064A\u062C\u0627\u0628\u064A\u0627\u062A \u0627\u0644\u0643\u0627\u0630\u0628\u0629." : "\u0644\u0645 \u064A\u062A\u0645 \u0627\u0644\u0639\u062B\u0648\u0631 \u0639\u0644\u0649 \u0623\u062F\u0644\u0629 \u0643\u0627\u0641\u064A\u0629 \u0644\u0628\u0646\u0627\u0621 \u0645\u062C\u0645\u0648\u0639\u0629 \u0647\u0648\u064A\u0629.";
+  }
+  const top = visible[0];
+  return `\u062A\u0645 \u0628\u0646\u0627\u0621 ${visible.length} \u0645\u062C\u0645\u0648\u0639\u0629 \u0647\u0648\u064A\u0629. \u0623\u0639\u0644\u0649 \u0645\u062C\u0645\u0648\u0639\u0629 \u0628\u062B\u0642\u0629 ${top.confidencePercent}%: ${top.conclusion}`;
+}
+function dedupeObservations(observations) {
+  const seen = /* @__PURE__ */ new Set();
+  return observations.filter((observation) => {
+    const key = `${observation.platform}:${observation.url ?? observation.username ?? observation.id}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+function sourceFromProfile(profileData, maigretProfile) {
+  const source = firstString(profileData.source);
+  if (source) return source;
+  if (maigretProfile) return "maigret";
+  return "platform-checker";
+}
+function groupBy(items, keyFn) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const item of items) {
+    const key = keyFn(item);
+    if (!key) continue;
+    const group = groups.get(key) ?? [];
+    group.push(item);
+    groups.set(key, group);
+  }
+  return groups;
+}
+function strongestTokenOverlap(sets) {
+  let strongest = 0;
+  for (let i = 0; i < sets.length; i += 1) {
+    for (let j = i + 1; j < sets.length; j += 1) {
+      const a = sets[i];
+      const b = sets[j];
+      if (a.size === 0 || b.size === 0) continue;
+      const shared = [...a].filter((token) => b.has(token)).length;
+      strongest = Math.max(strongest, shared / Math.min(a.size, b.size));
+    }
+  }
+  return strongest;
+}
+function hasTokenOverlapConflictException(names) {
+  const sets = names.map(tokenSet).filter((set2) => set2.size > 0);
+  return strongestTokenOverlap(sets) >= 0.5;
+}
+function tokenSet(value) {
+  return new Set((value ?? "").toLowerCase().split(/[^a-z0-9\u0600-\u06ff]+/).filter((token) => token.length > 2));
+}
+function uniqueMeaningful(values) {
+  return [...new Set(values.filter((value) => value.length > 2))];
+}
+function firstString(...values) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+function normalizeUsername(value) {
+  return normalizeText(value);
+}
+function normalizeText(value) {
+  return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "").trim();
+}
+function normalizeEmail(value) {
+  if (!value || !value.includes("@")) return null;
+  return value.trim().toLowerCase();
+}
+function normalizeWebsite(value) {
+  if (!value) return null;
+  try {
+    const url2 = new URL(value.startsWith("http") ? value : `https://${value}`);
+    return url2.hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+function normalizeImage(value) {
+  if (!value) return null;
+  return value.trim().replace(/\?.*$/, "");
+}
+function slugify2(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 64);
+}
+function round2(value) {
+  return Math.round(value * 100) / 100;
+}
+
 // src/services/usernameSearch.ts
 startBackgroundInstall();
 async function runUsernameSearch(id, username) {
@@ -60615,12 +61121,8 @@ async function runUsernameSearch(id, username) {
     await db.update(searchesTable).set({ progress: 88 }).where(eq(searchesTable.id, id));
     const profilesFoundFinal = buildProfilesMap(finalMerged, maigretFinal, twitch, username);
     const totalFound = Object.values(profilesFoundFinal).filter((p) => p.exists).length;
-    const verifiedFound = Object.values(profilesFoundFinal).filter((p) => p.exists && p.verified).length;
-    const confidence = Math.round(Math.min(
-      0.2 + verifiedFound * 0.05 + (githubProfile ? 0.15 : 0) + (breaches.length > 0 ? 0.05 : 0),
-      0.97
-    ) * 100) / 100;
     const usernameResult = buildUsernameResult(username, profilesFoundFinal, finalMerged, maigretFinal, twitch, githubProfile, breaches, emailRep, certs, possibleEmail);
+    const confidence = usernameResult.identityReport.identities[0]?.confidence ?? 0;
     await db.update(searchesTable).set({
       status: "completed",
       progress: 100,
@@ -60721,6 +61223,15 @@ function buildUsernameResult(username, profilesFound, mergedResults, maigret, tw
   if (twitch) sourcesUsed.push("twitch");
   if (githubProfile) sourcesUsed.push("github");
   if (breaches.length > 0) sourcesUsed.push("breaches");
+  const identityReport = buildIdentityResolutionReport({
+    username,
+    profilesFound,
+    mergedResults,
+    maigret,
+    twitch,
+    githubProfile,
+    possibleEmail
+  });
   return {
     username,
     profilesFound,
@@ -60736,6 +61247,7 @@ function buildUsernameResult(username, profilesFound, mergedResults, maigret, tw
     profilePhoto: topPhoto,
     profileBio: topBio,
     profileFullname: topFullname,
+    identityReport,
     maigretProfiles: maigret?.found ?? [],
     summary: {
       realName: topFullname ?? githubProfile?.name ?? null,
@@ -61255,9 +61767,10 @@ async function getAdminPassword() {
 var adminSessions = /* @__PURE__ */ new Map();
 function safeCompare(a, b) {
   try {
-    const ba = Buffer.from(a.padEnd(128));
-    const bb = Buffer.from(b.padEnd(128));
-    return timingSafeEqual(ba, bb) && a.length === b.length;
+    const maxLen = Math.max(a.length, b.length, 32);
+    const ba = Buffer.from(a.padEnd(maxLen));
+    const bb = Buffer.from(b.padEnd(maxLen));
+    return timingSafeEqual(ba, bb);
   } catch {
     return false;
   }

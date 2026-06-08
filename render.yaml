@@ -27,6 +27,8 @@ services:
       - key: VITE_TELEGRAM_BOT_USERNAME
         value: lyosintbot
         sync: false
+      - key: VITE_TELEGRAM_WIDGET_BOT_ID
+        sync: false
       - key: VITE_API_URL
         value: ""
         sync: false

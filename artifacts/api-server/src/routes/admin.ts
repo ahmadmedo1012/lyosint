@@ -31,9 +31,10 @@ const adminSessions = new Map<string, { expiresAt: number }>();
 
 function safeCompare(a: string, b: string): boolean {
   try {
-    const ba = Buffer.from(a.padEnd(128));
-    const bb = Buffer.from(b.padEnd(128));
-    return timingSafeEqual(ba, bb) && a.length === b.length;
+    const maxLen = Math.max(a.length, b.length, 32);
+    const ba = Buffer.from(a.padEnd(maxLen));
+    const bb = Buffer.from(b.padEnd(maxLen));
+    return timingSafeEqual(ba, bb);
   } catch {
     return false;
   }
