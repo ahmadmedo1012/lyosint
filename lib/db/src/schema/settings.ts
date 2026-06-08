@@ -10,3 +10,4 @@ export const settingsTable = pgTable("settings", {
 });
 
 export type Setting = typeof settingsTable.$inferSelect;
+export type SettingInsert = typeof settingsTable.$inferInsert;

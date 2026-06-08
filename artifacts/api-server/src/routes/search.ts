@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { randomUUID } from "crypto";
-import { db, searchesTable, usersTable } from "@workspace/db";
+import { db, searchesTable, usersTable, type Search } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import {
   SearchByNameBody,
@@ -123,7 +123,7 @@ router.get("/searches/recent", async (req, res) => {
   const parsed = ListRecentSearchesQueryParams.safeParse(req.query);
   const limit = parsed.success ? (parsed.data.limit ?? 20) : 20;
   const rows = await db.select().from(searchesTable).orderBy(desc(searchesTable.createdAt)).limit(limit);
-  res.json(rows.map((r) => ({
+  res.json(rows.map((r: Search) => ({
     id: r.id, type: r.type, query: r.query, status: r.status,
     createdAt: r.createdAt.toISOString(), resultsCount: r.resultsCount ?? null, confidenceScore: r.confidenceScore ?? null,
   })));

@@ -210,7 +210,7 @@ export async function getSystemConfigNumber(key: string): Promise<number> {
   return parseInt(val ?? "0", 10) || 0;
 }
 
-export async function getAllSettingRows() {
+export async function getAllSettingRows(): Promise<import("@workspace/db").Setting[]> {
   try {
     return db.select().from(settingsTable);
   } catch {

@@ -216,8 +216,8 @@ router.delete("/admin/users/:id", requireAdminToken, async (req, res) => {
 
 router.get("/admin/settings", requireAdminToken, async (req, res) => {
   try {
-    const rows = await getAllSettingRows();
-    const configuredKeys = new Map(rows.map((r) => [r.key, r]));
+    const rows: import("@workspace/db").Setting[] = await getAllSettingRows();
+    const configuredKeys = new Map(rows.map((r: import("@workspace/db").Setting) => [r.key, r]));
 
     const services = DEFINED_SERVICES.map((svc) => ({
       ...svc,
@@ -266,8 +266,8 @@ router.delete("/admin/settings/:key", requireAdminToken, async (req, res) => {
 
 router.get("/admin/system-config", requireAdminToken, async (req, res) => {
   try {
-    const rows = await getAllSettingRows();
-    const storedMap = new Map(rows.map((r) => [r.key, r.value]));
+    const rows: import("@workspace/db").Setting[] = await getAllSettingRows();
+    const storedMap = new Map(rows.map((r: import("@workspace/db").Setting) => [r.key, r.value]));
 
     const config = SYSTEM_CONFIG_DEFS.map((def) => ({
       key: def.key,

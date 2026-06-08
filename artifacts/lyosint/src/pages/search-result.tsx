@@ -89,7 +89,7 @@ export default function SearchResultPage() {
     query: {
       enabled: !!id,
       queryKey: getGetSearchStatusQueryKey(id!),
-      refetchInterval: (query) => {
+      refetchInterval: (query: { state: { data: any } }) => {
         const d = query.state.data;
         if (d?.status === "completed" || d?.status === "failed") return false;
         return 1500;
@@ -105,7 +105,7 @@ export default function SearchResultPage() {
     query: {
       enabled: !!id && (isCompleted || isRunning),
       queryKey: getGetSearchStatusQueryKey(id!) as unknown as readonly unknown[],
-      refetchInterval: (query) => {
+      refetchInterval: (query: { state: { data: any } }) => {
         const d = query.state.data;
         if (isCompleted || isFailed) return false;
         if (d && d.usernameResult && Object.keys(d.usernameResult?.profilesFound || {}).length > 0) return 2000;
@@ -210,7 +210,7 @@ export default function SearchResultPage() {
                       <div className="py-2.5 border-b border-border/20">
                         <div className="text-xs text-muted-foreground uppercase font-mono mb-2">الأسماء المشابهة</div>
                         <div className="flex flex-wrap gap-1.5">
-                          {displayResult.nameResult.possibleVariations.map((alias) => (
+                          {displayResult.nameResult.possibleVariations.map((alias: string) => (
                             <Badge key={alias} variant="secondary" className="font-mono text-xs" dir="ltr">{alias}</Badge>
                           ))}
                         </div>
