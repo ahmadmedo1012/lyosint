@@ -30,13 +30,13 @@ export async function runUsernameSearch(id: string, username: string): Promise<v
       checkUsername(username),
       lookupTwitchUser(username),
       checkWhatsMyName(username, {
-        concurrency: 30,
+        concurrency: 40,
         perSiteTimeoutMs: 4000,
-        globalTimeoutMs: 15000,
+        globalTimeoutMs: 8000,
         siteNames: SOCIAL_WMN_SITES,
       }),
       isMaigretAvailable()
-        ? runMaigret(username, { timeoutMs: 6000, maxConnections: 30, maxSites: 200 })
+        ? runMaigret(username, { timeoutMs: 4000, maxConnections: 40, maxSites: 50 })
         : Promise.resolve({ username, found: [], totalFound: 0, elapsedSeconds: 0 }),
     ]);
 

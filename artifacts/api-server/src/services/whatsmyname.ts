@@ -109,15 +109,16 @@ async function checkOneSite(
   globalSignal?: AbortSignal,
 ): Promise<SiteResult> {
   const url = buildUrl(site.uri_check, username);
-  const start = Date.now();
+    const start = Date.now();
+    const originalHost = new URL(url).host;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), perSiteTimeoutMs);
-  const onGlobalAbort = () => controller.abort();
-  if (globalSignal) {
-    if (globalSignal.aborted) controller.abort();
-    else globalSignal.addEventListener("abort", onGlobalAbort, { once: true });
-  }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), perSiteTimeoutMs);
+    const onGlobalAbort = () => controller.abort();
+    if (globalSignal) {
+      if (globalSignal.aborted) controller.abort();
+      else globalSignal.addEventListener("abort", onGlobalAbort, { once: true });
+    }
 
   try {
     const headers: Record<string, string> = {
@@ -142,7 +143,6 @@ async function checkOneSite(
     try {
       resp = await fetch(url, fetchOpts);
     } catch (err: any) {
-      // Some environments don't support redirect option — retry without it
       if (err.message?.includes("redirect") || err.code === "ERR_INVALID_REDIRECT") {
         const { redirect: _r, ...manualOpts } = fetchOpts as any;
         resp = await fetch(url, fetchOpts);
@@ -150,20 +150,43 @@ async function checkOneSite(
         throw err;
       }
     }
-    const httpStatus = resp.status;
+
+    // Layer 1: HTTP-level redirect detection
+    // If the server returns 3xx with a cross-domain Location header, abort immediately.
+    // This is the root cause of the Wattpad redirect: Facebook returns 3xx → wattpad.com
+    // for non-existent profiles, and following it makes the tool report Wattpad as the result.
+    if (resp.status >= 300 && resp.status < 400) {
+      const location = resp.headers.get("location");
+      if (location) {
+        try {
+          const locationHost = new URL(location, url).host;
+          if (locationHost !== originalHost) {
+            return {
+              site,
+              found: false,
+              httpStatus: resp.status,
+              responseTimeMs: Date.now() - start,
+              error: `redirected_to_${locationHost.split(".").slice(-2).join(".")}`,
+              redirectTarget: location,
+            };
+          }
+        } catch {
+          // Invalid Location header — continue with normal detection
+        }
+      }
+    }
+
     const finalUrl = resp.url;
+    const httpStatus = resp.status;
     const elapsed = Date.now() - start;
 
-    // Detect cross-domain redirect (e.g. Facebook → Wattpad for non-existent accounts)
-    const originalHost = new URL(url).host;
-    const finalHost = new URL(finalUrl).host;
-    if (originalHost !== finalHost) {
+    if (originalHost !== new URL(finalUrl).host) {
       return {
         site,
         found: false,
         httpStatus,
         responseTimeMs: elapsed,
-        error: `redirected_to_${finalHost.split(".").slice(-2).join(".")}`,
+        error: `redirected_to_${new URL(finalUrl).host.split(".").slice(-2).join(".")}`,
         redirectTarget: finalUrl,
       };
     }
