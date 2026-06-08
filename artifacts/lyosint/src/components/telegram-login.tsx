@@ -6,27 +6,11 @@ import { Button } from "@/components/ui/button";
 declare global {
   interface Window {
     TelegramLoginCallback?: (data: Record<string, string>) => void;
-    Telegram?: { WidgetLogin: (options: TelegramWidgetOptions) => void };
-  }
-  interface TelegramWidgetOptions {
-    auth_url?: string;
-    bot_id?: number;
-    size?: "small" | "large";
-    radius?: number;
-    request_access?: string;
-    onauth?: (user: Record<string, string>) => void;
-    onload?: () => void;
-    onerror?: () => void;
-    corner_radius?: number;
-    embed_domain?: string;
-    lang?: string;
-    width?: string;
   }
 }
 
 const BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME ?? "lyosintbot";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-const WIDGET_BOT_ID = import.meta.env.VITE_TELEGRAM_WIDGET_BOT_ID ?? "";
 
 function generateLoginToken(): string {
   return Array.from(crypto.getRandomValues(new Uint8Array(16)))
@@ -36,28 +20,10 @@ function generateLoginToken(): string {
 
 type LoginState = "idle" | "waiting" | "success" | "error";
 
-function loadTelegramWidgetScript(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (document.getElementById("telegram-widget-script")) {
-      resolve();
-      return;
-    }
-    const script = document.createElement("script");
-    script.id = "telegram-widget-script";
-    script.src = "https://telegram.org/js/telegram-widget.js?22";
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Failed to load Telegram widget script"));
-    document.body.appendChild(script);
-  });
-}
-
 export function TelegramLoginButton({ onSuccess }: { onSuccess?: () => void }) {
   const { login, refreshUser } = useAuth();
-  const containerRef = useRef<HTMLDivElement>(null);
   const [loginToken] = useState(() => generateLoginToken());
   const [loginState, setLoginState] = useState<LoginState>("idle");
-  const [widgetLoaded, setWidgetLoaded] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const botLoginUrl = `https://t.me/${BOT_USERNAME}?start=login_${loginToken}`;
@@ -74,32 +40,6 @@ export function TelegramLoginButton({ onSuccess }: { onSuccess?: () => void }) {
     };
     return () => { delete window.TelegramLoginCallback; };
   }, [login, onSuccess]);
-
-  useEffect(() => {
-    if (!WIDGET_BOT_ID) {
-      console.warn("VITE_TELEGRAM_WIDGET_BOT_ID not set, Telegram widget unavailable");
-      return;
-    }
-    loadTelegramWidgetScript()
-      .then(() => {
-        if (containerRef.current && window.Telegram?.WidgetLogin) {
-          window.Telegram.WidgetLogin({
-            bot_id: parseInt(WIDGET_BOT_ID, 10),
-            size: "large",
-            radius: 8,
-            request_access: "write",
-            onauth: (user) => {
-              window.TelegramLoginCallback?.(user);
-            },
-            onload: () => setWidgetLoaded(true),
-            onerror: () => console.error("Telegram widget load error"),
-            embed_domain: window.location.hostname,
-            lang: "ar",
-          });
-        }
-      })
-      .catch((err) => console.error("Telegram widget script error:", err));
-  }, []);
 
   const startPolling = useCallback(() => {
     setLoginState("waiting");
@@ -137,12 +77,6 @@ export function TelegramLoginButton({ onSuccess }: { onSuccess?: () => void }) {
 
   return (
     <div className="flex flex-col gap-4 w-full">
-      <div
-        ref={containerRef}
-        className={`h-0 overflow-hidden transition-all duration-300 ${widgetLoaded ? "h-auto opacity-100" : "opacity-0"}`}
-        style={{ minHeight: widgetLoaded ? "auto" : "0" }}
-      />
-
       {loginState === "idle" && (
         <div className="space-y-3">
           <Button onClick={handleOpenBot} className="w-full h-11 font-bold gap-2.5 text-[15px]">
