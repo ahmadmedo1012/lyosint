@@ -25,6 +25,7 @@ export function TelegramLoginButton({ onSuccess }: { onSuccess?: () => void }) {
   const [loginToken] = useState(() => generateLoginToken());
   const [loginState, setLoginState] = useState<LoginState>("idle");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const popupRef = useRef<Window | null>(null);
 
   const botLoginUrl = `https://t.me/${BOT_USERNAME}?start=login_${loginToken}`;
 
@@ -33,13 +34,24 @@ export function TelegramLoginButton({ onSuccess }: { onSuccess?: () => void }) {
       try {
         await login(data);
         setLoginState("success");
-        onSuccess?.();
+        setTimeout(() => onSuccess?.(), 500);
       } catch {
-        // fallback to bot method
+        setLoginState("error");
       }
     };
     return () => { delete window.TelegramLoginCallback; };
   }, [login, onSuccess]);
+
+  const completeLogin = useCallback(async (sessionToken: string) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    localStorage.setItem("lyosint_session", sessionToken);
+    setLoginState("success");
+    await refreshUser();
+    if (popupRef.current && !popupRef.current.closed) {
+      popupRef.current.close();
+    }
+    setTimeout(() => onSuccess?.(), 300);
+  }, [refreshUser, onSuccess]);
 
   const startPolling = useCallback(() => {
     setLoginState("waiting");
@@ -52,26 +64,27 @@ export function TelegramLoginButton({ onSuccess }: { onSuccess?: () => void }) {
         });
         const data = await res.json();
         if (data.ready) {
-          clearInterval(pollRef.current!);
-          localStorage.setItem("lyosint_session", data.sessionToken);
-          setLoginState("success");
-          await refreshUser();
-          onSuccess?.();
+          await completeLogin(data.sessionToken);
         }
       } catch {
         // keep polling
       }
-    }, 2000);
+    }, 1000);
 
     setTimeout(() => {
-      if (pollRef.current) { clearInterval(pollRef.current); setLoginState("idle"); }
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        setLoginState("idle");
+      }
     }, 5 * 60 * 1000);
-  }, [loginToken, refreshUser, onSuccess]);
+  }, [loginToken, completeLogin]);
 
-  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
 
   const handleOpenBot = () => {
-    window.open(botLoginUrl, "_blank");
+    popupRef.current = window.open(botLoginUrl, "TelegramLogin", "width=400,height=700");
     startPolling();
   };
 
@@ -84,7 +97,7 @@ export function TelegramLoginButton({ onSuccess }: { onSuccess?: () => void }) {
             تسجيل الدخول عبر تيليقرام
           </Button>
           <p className="text-center text-[11px] text-muted-foreground">
-            سيفتح تيليقرام تلقائياً — اضغط Start ثم عُد هنا
+            سيتم فتح نافذة تيليقرام — اضغط Start ثم ستعود تلقائياً
           </p>
         </div>
       )}
@@ -97,12 +110,12 @@ export function TelegramLoginButton({ onSuccess }: { onSuccess?: () => void }) {
               في انتظار التأكيد…
             </div>
             <p className="text-xs text-muted-foreground">
-              افتح تيليقرام واضغط <span className="font-bold text-foreground">Start</span> ثم ارجع هنا
+              افتح نافذة تيليقرام واضغط <span className="font-bold text-foreground">Start</span>
             </p>
           </div>
           <div className="flex gap-2">
             <Button onClick={handleOpenBot} variant="outline" size="sm" className="flex-1 gap-1.5 text-xs">
-              <Send className="w-3.5 h-3.5" /> افتح تيليقرام مجدداً
+              <Send className="w-3.5 h-3.5" /> إعادة فتح تيليقرام
             </Button>
             <Button
               onClick={() => { clearInterval(pollRef.current!); setLoginState("idle"); }}
@@ -117,7 +130,7 @@ export function TelegramLoginButton({ onSuccess }: { onSuccess?: () => void }) {
       {loginState === "success" && (
         <div className="flex items-center justify-center gap-2 py-3 text-green-500 font-bold">
           <CheckCircle2 className="w-5 h-5" />
-          تم تسجيل الدخول بنجاح
+          تم تسجيل الدخول بنجاح — جارِ التوجيه…
         </div>
       )}
 
@@ -138,14 +151,11 @@ export function TelegramLoginButton({ onSuccess }: { onSuccess?: () => void }) {
 export function LoginPage({ onSuccess }: { onSuccess?: () => void }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6 py-10 relative overflow-hidden" dir="rtl">
-      {/* Background grid */}
       <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] pointer-events-none" />
-      {/* Radial glow */}
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-primary/8 blur-[80px] rounded-full pointer-events-none" />
 
       <div className="relative w-full max-w-[420px] space-y-6">
 
-        {/* Brand */}
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center">
             <div className="relative w-14 h-14 rounded-2xl bg-primary/10 border border-primary/25 flex items-center justify-center">
@@ -159,12 +169,11 @@ export function LoginPage({ onSuccess }: { onSuccess?: () => void }) {
           </div>
         </div>
 
-        {/* Stats Row */}
         <div className="grid grid-cols-3 gap-2.5">
           {[
-            { value: "75+",    label: "منصة OSINT",   color: "text-primary" },
-            { value: "مجاني",  label: "3 بحث أولاً",  color: "text-green-400" },
-            { value: "30 د.ل", label: "اشتراك/شهر",   color: "text-amber-400" },
+            { value: "75+", label: "منصة OSINT", color: "text-primary" },
+            { value: "مجاني", label: "3 بحث أولاً", color: "text-green-400" },
+            { value: "30 د.ل", label: "اشتراك/شهر", color: "text-amber-400" },
           ].map(({ value, label, color }) => (
             <div key={label} className="bg-card border border-border/50 rounded-xl p-3 text-center">
               <div className={`text-lg font-black font-mono ${color}`}>{value}</div>
@@ -173,7 +182,6 @@ export function LoginPage({ onSuccess }: { onSuccess?: () => void }) {
           ))}
         </div>
 
-        {/* Login Card */}
         <div className="bg-card border border-border/60 rounded-2xl overflow-hidden shadow-lg">
           <div className="bg-secondary/30 border-b border-border/40 px-5 py-3 flex items-center gap-2">
             <ShieldAlert className="w-4 h-4 text-primary" />
@@ -184,7 +192,6 @@ export function LoginPage({ onSuccess }: { onSuccess?: () => void }) {
           </div>
         </div>
 
-        {/* Feature pills */}
         <div className="flex flex-wrap justify-center gap-2">
           {["بحث بالاسم", "بحث بالهاتف", "بحث بالمعرّف", "بحث شامل", "crt.sh", "GitHub OSINT"].map((f) => (
             <span key={f} className="text-[10px] px-2.5 py-1 rounded-full border border-border/30 text-muted-foreground/60 font-mono">
@@ -194,7 +201,7 @@ export function LoginPage({ onSuccess }: { onSuccess?: () => void }) {
         </div>
 
         <p className="text-center text-[10px] text-muted-foreground/30 font-mono uppercase tracking-widest">
-          LYOSINT v3.0 · OSINT PLATFORM · LIBYA
+          LYOSINT v3.0 OSINT PLATFORM LIBYA
         </p>
       </div>
     </div>

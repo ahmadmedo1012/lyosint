@@ -1,5 +1,5 @@
 services:
-  - type: pserv
+  - type: web
     name: lyosint
     runtime: docker
     plan: starter
@@ -26,6 +26,8 @@ services:
         sync: false
       - key: VITE_TELEGRAM_BOT_USERNAME
         value: lyosintbot
+        sync: false
+      - key: PUBLIC_URL
         sync: false
       - key: VITE_API_URL
         value: ""

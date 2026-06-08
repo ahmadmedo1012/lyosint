@@ -21237,13 +21237,13 @@ var require_application = __commonJS({
       tryRender(view, renderOptions, done);
     };
     app2.listen = function listen() {
-      var server = http.createServer(this);
+      var server2 = http.createServer(this);
       var args = slice.call(arguments);
       if (typeof args[args.length - 1] === "function") {
         var done = args[args.length - 1] = once(args[args.length - 1]);
-        server.once("error", done);
+        server2.once("error", done);
       }
-      return server.listen.apply(server, args);
+      return server2.listen.apply(server2, args);
     };
     function logerror(err) {
       if (this.get("env") !== "test") console.error(err.stack || err.toString());
@@ -62086,8 +62086,54 @@ var port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
-app_default.listen(port, () => {
+var BOT_TOKEN2 = process.env.TELEGRAM_BOT_TOKEN ?? "";
+var PUBLIC_URL = process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || "";
+async function getWebhookInfo() {
+  if (!BOT_TOKEN2) return null;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN2}/getWebhookInfo`);
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+async function setTelegramWebhook() {
+  if (!BOT_TOKEN2) {
+    logger.warn("TELEGRAM_BOT_TOKEN not set, skipping webhook setup");
+    return;
+  }
+  let webhookUrl = PUBLIC_URL ? `${PUBLIC_URL}/api/auth/bot-webhook` : "";
+  if (!webhookUrl) {
+    const info = await getWebhookInfo();
+    if (info?.ok && info.result?.url) {
+      logger.info({ url: info.result.url }, "Telegram webhook already configured");
+      return;
+    }
+    logger.error("PUBLIC_URL not set \u2014 set it in Render env vars (e.g. https://lyosint.onrender.com)");
+    return;
+  }
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN2}/setWebhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: webhookUrl, drop_pending_updates: true })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      logger.info({ webhookUrl }, "Telegram webhook set successfully");
+    } else {
+      logger.error({ error: data.description }, "Failed to set Telegram webhook");
+    }
+  } catch (err) {
+    logger.error(err, "Error setting Telegram webhook");
+  }
+}
+var server = app_default.listen(port, async () => {
   logger.info({ port }, "Server listening");
+  await setTelegramWebhook();
+});
+process.on("SIGTERM", () => {
+  server.close(() => logger.info("Server closed"));
 });
 /*! Bundled license information:
 
