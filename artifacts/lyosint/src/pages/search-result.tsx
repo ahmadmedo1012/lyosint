@@ -92,7 +92,7 @@ export default function SearchResultPage() {
       refetchInterval: (query: { state: { data: any } }) => {
         const d = query.state.data;
         if (d?.status === "completed" || d?.status === "failed") return false;
-        return 1500;
+        return 1000;
       },
     },
   });
