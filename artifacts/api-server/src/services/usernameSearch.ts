@@ -6,6 +6,7 @@ import { checkHIBP, lookupTwitchUser, checkLeakCheck, checkEmailRep, crtShLookup
 import { getSetting } from "./settingsService";
 import { checkWhatsMyName, wmnResultToPlatformResult, type WMNResult } from "./whatsmyname";
 import { runMaigret, isMaigretAvailable, startBackgroundInstall, type MaigretProfile, type MaigretResult } from "./maigret";
+import { buildIdentityResolutionReport } from "./correlation/correlationEngine";
 
 // Start background install of maigret on module load
 startBackgroundInstall();
@@ -139,14 +140,9 @@ export async function runUsernameSearch(id: string, username: string): Promise<v
 
     const profilesFoundFinal = buildProfilesMap(finalMerged, maigretFinal, twitch, username);
     const totalFound = Object.values(profilesFoundFinal).filter((p) => p.exists).length;
-    const verifiedFound = Object.values(profilesFoundFinal).filter((p) => p.exists && p.verified).length;
-
-    const confidence = Math.round(Math.min(
-      0.2 + verifiedFound * 0.05 + (githubProfile ? 0.15 : 0) + (breaches.length > 0 ? 0.05 : 0),
-      0.97,
-    ) * 100) / 100;
 
     const usernameResult = buildUsernameResult(username, profilesFoundFinal, finalMerged, maigretFinal, twitch, githubProfile, breaches, emailRep, certs, possibleEmail);
+    const confidence = usernameResult.identityReport.identities[0]?.confidence ?? 0;
 
     await db.update(searchesTable).set({
       status: "completed", progress: 100,
@@ -258,6 +254,16 @@ function buildUsernameResult(
   if (githubProfile) sourcesUsed.push("github");
   if (breaches.length > 0) sourcesUsed.push("breaches");
 
+  const identityReport = buildIdentityResolutionReport({
+    username,
+    profilesFound,
+    mergedResults,
+    maigret,
+    twitch,
+    githubProfile,
+    possibleEmail,
+  });
+
   return {
     username,
     profilesFound,
@@ -273,6 +279,7 @@ function buildUsernameResult(
     profilePhoto: topPhoto,
     profileBio: topBio,
     profileFullname: topFullname,
+    identityReport,
     maigretProfiles: maigret?.found ?? [],
     summary: {
       realName: topFullname ?? githubProfile?.name ?? null,
