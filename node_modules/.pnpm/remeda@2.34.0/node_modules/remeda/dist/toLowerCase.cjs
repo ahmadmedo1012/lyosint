@@ -1,2 +1,0 @@
-Object.defineProperty(exports,Symbol.toStringTag,{value:`Module`});const e=require(`./purry.cjs`);function t(...t){return e.purry(n,t)}const n=e=>e.toLowerCase();exports.toLowerCase=t;
-//# sourceMappingURL=toLowerCase.cjs.map

@@ -1,2 +1,0 @@
-Object.defineProperty(exports,Symbol.toStringTag,{value:`Module`});function e(e,t,n){return typeof e==`string`?e.slice(t,n):n=>n.slice(e,t)}exports.sliceString=e;
-//# sourceMappingURL=sliceString.cjs.map

@@ -1,2 +1,0 @@
-Object.defineProperty(exports,Symbol.toStringTag,{value:`Module`});const e=require(`./purry.cjs`),t=require(`./binarySearchCutoffIndex-TBknSzI9.cjs`);function n(...t){return e.purry(r,t)}function r(e,n,r){let i=r(n,void 0,e);return t.t(e,(t,n)=>r(t,n,e)<=i)}exports.sortedLastIndexBy=n;
-//# sourceMappingURL=sortedLastIndexBy.cjs.map
