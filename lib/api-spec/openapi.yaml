@@ -1,0 +1,724 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: LYOSINT Libya OSINT investigation platform API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: search
+    description: OSINT search operations
+  - name: stats
+    description: Statistics and analytics
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /search/name:
+    post:
+      operationId: searchByName
+      tags: [search]
+      summary: Search by name
+      description: Search for a person by Libyan name (Arabic or English)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NameSearchInput"
+      responses:
+        "202":
+          description: Search task accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchTask"
+        "400":
+          description: Bad request
+
+  /search/phone:
+    post:
+      operationId: searchByPhone
+      tags: [search]
+      summary: Search by phone number
+      description: Search for information about a Libyan phone number (+218)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PhoneSearchInput"
+      responses:
+        "202":
+          description: Search task accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchTask"
+        "400":
+          description: Bad request
+
+  /search/username:
+    post:
+      operationId: searchByUsername
+      tags: [search]
+      summary: Search by username
+      description: Search for a username across 400+ platforms including Libya-specific platforms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UsernameSearchInput"
+      responses:
+        "202":
+          description: Search task accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchTask"
+        "400":
+          description: Bad request
+
+  /search/deep:
+    post:
+      operationId: deepSearch
+      tags: [search]
+      summary: Deep search all modes simultaneously
+      description: Run all three search modes at once from a single query
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeepSearchInput"
+      responses:
+        "202":
+          description: Deep search task accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchTask"
+
+  /search/{id}:
+    get:
+      operationId: getSearchResult
+      tags: [search]
+      summary: Get search result
+      description: Retrieve the full result of a completed search task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Search result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResult"
+        "404":
+          description: Not found
+
+  /search/{id}/status:
+    get:
+      operationId: getSearchStatus
+      tags: [search]
+      summary: Get search task status
+      description: Poll the status of an ongoing search task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Task status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchTask"
+
+  /searches/recent:
+    get:
+      operationId: listRecentSearches
+      tags: [search]
+      summary: List recent searches
+      description: Returns the most recent completed investigation sessions
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Recent searches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SearchSummary"
+
+  /stats:
+    get:
+      operationId: getStats
+      tags: [stats]
+      summary: Get platform statistics
+      description: Returns aggregate statistics for the LYOSINT platform
+      responses:
+        "200":
+          description: Platform stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformStats"
+
+  /platform-coverage:
+    get:
+      operationId: getPlatformCoverage
+      tags: [stats]
+      summary: Get platform coverage list
+      description: Returns the list of all platforms searched and their status
+      responses:
+        "200":
+          description: Platform coverage
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlatformInfo"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    NameSearchInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Full or partial name in Arabic or English
+          minLength: 2
+        deep:
+          type: boolean
+          default: false
+          description: Enable deep cross-reference correlation
+
+    PhoneSearchInput:
+      type: object
+      required: [phone]
+      properties:
+        phone:
+          type: string
+          description: Phone number in +218XXXXXXXXX or 09XXXXXXXX format
+        deep:
+          type: boolean
+          default: false
+
+    UsernameSearchInput:
+      type: object
+      required: [username]
+      properties:
+        username:
+          type: string
+          description: Username to search across platforms
+          minLength: 2
+        platforms:
+          type: array
+          items:
+            type: string
+          description: Optional list of platform slugs to restrict search
+
+    DeepSearchInput:
+      type: object
+      properties:
+        name:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        username:
+          type: ["string", "null"]
+
+    SearchTask:
+      type: object
+      required: [id, status, type, query, createdAt]
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        type:
+          type: string
+          enum: [name, phone, username, deep]
+        query:
+          type: string
+        progress:
+          type: ["integer", "null"]
+          description: Progress percentage 0-100
+        platformsSearched:
+          type: ["integer", "null"]
+        platformsTotal:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+        completedAt:
+          type: ["string", "null"]
+
+    SearchResult:
+      type: object
+      required: [id, type, query, status, createdAt]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [name, phone, username, deep]
+        query:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        createdAt:
+          type: string
+        completedAt:
+          type: ["string", "null"]
+        nameResult:
+          $ref: "#/components/schemas/NameResult"
+        phoneResult:
+          $ref: "#/components/schemas/PhoneResult"
+        usernameResult:
+          $ref: "#/components/schemas/UsernameResult"
+        confidenceScore:
+          type: ["number", "null"]
+
+    NameResult:
+      type: object
+      required: [fullName, possibleVariations, usernameVariants, githubUsers, discoveredEmails, searchEngineLinks, socialMedia, libyanPlatforms, sources, dataNote]
+      properties:
+        fullName:
+          type: string
+        possibleVariations:
+          type: array
+          items:
+            type: string
+        usernameVariants:
+          type: array
+          items:
+            type: string
+        githubUsers:
+          type: array
+          items:
+            $ref: "#/components/schemas/GitHubUserItem"
+        discoveredEmails:
+          type: array
+          items:
+            type: string
+        searchEngineLinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/NamedLink"
+        socialMedia:
+          $ref: "#/components/schemas/SocialMediaLinks"
+        libyanPlatforms:
+          type: array
+          items:
+            $ref: "#/components/schemas/NamedLink"
+        sources:
+          type: array
+          items:
+            type: string
+        dataNote:
+          type: string
+
+    PhoneResult:
+      type: object
+      required: [phone, valid, isLibyan, investigativeLinks, messagingApps, dataSource, confidenceScore]
+      properties:
+        phone:
+          type: string
+        valid:
+          type: boolean
+        nationalFormat:
+          type: ["string", "null"]
+        isLibyan:
+          type: boolean
+        carrier:
+          type: ["string", "null"]
+        lineType:
+          type: ["string", "null"]
+        region:
+          type: ["string", "null"]
+        countryName:
+          type: ["string", "null"]
+        countryCode:
+          type: ["string", "null"]
+        investigativeLinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvestigativeLink"
+        messagingApps:
+          $ref: "#/components/schemas/MessagingApps"
+        dataSource:
+          type: string
+        confidenceScore:
+          type: number
+        phoneMeta:
+          type: ["object", "null"]
+          $ref: "#/components/schemas/PhoneMeta"
+
+    PhoneMeta:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        possible:
+          type: boolean
+        e164:
+          type: ["string", "null"]
+        nationalNumber:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        countryCallingCode:
+          type: ["string", "null"]
+        numberType:
+          type: ["string", "null"]
+        internationalFormat:
+          type: ["string", "null"]
+        nationalFormat:
+          type: ["string", "null"]
+
+    MaigretProfile:
+      type: object
+      properties:
+        site:
+          type: string
+        url:
+          type: ["string", "null"]
+        category:
+          type: string
+        httpStatus:
+          type: ["integer", "null"]
+        detectionMethod:
+          type: string
+        fullname:
+          type: ["string", "null"]
+        bio:
+          type: ["string", "null"]
+        image:
+          type: ["string", "null"]
+        extra:
+          type: object
+          additionalProperties: { type: string }
+
+    InvestigativeLink:
+      type: object
+      required: [label, url, type]
+      properties:
+        label: { type: string }
+        url: { type: string }
+        type: { type: string }
+
+    MessagingAppStatus:
+      type: object
+      required: [available, url, note]
+      properties:
+        available:
+          type: ["boolean", "null"]
+        url: { type: string }
+        note: { type: string }
+
+    MessagingApps:
+      type: object
+      required: [whatsapp, telegram]
+      properties:
+        whatsapp: { $ref: "#/components/schemas/MessagingAppStatus" }
+        telegram: { $ref: "#/components/schemas/MessagingAppStatus" }
+
+    NamedLink:
+      type: object
+      required: [label, url]
+      properties:
+        label: { type: string }
+        url: { type: string }
+
+    GitHubUserItem:
+      type: object
+      required: [login, avatar, url, type]
+      properties:
+        login: { type: string }
+        avatar: { type: string }
+        url: { type: string }
+        type: { type: string }
+
+    UsernameResult:
+      type: object
+      required: [username, totalPlatformsSearched, totalFound, verifiedFound, breaches, certDomains, summary]
+      properties:
+        username:
+          type: string
+        profilesFound:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/PlatformProfile"
+        totalPlatformsSearched:
+          type: integer
+        totalFound:
+          type: integer
+        verifiedFound:
+          type: integer
+        githubProfile:
+          $ref: "#/components/schemas/GitHubProfile"
+        breaches:
+          type: array
+          items:
+            $ref: "#/components/schemas/BreachEntry"
+        emailRep:
+          $ref: "#/components/schemas/EmailRep"
+        sources:
+          type: array
+          items: { type: string }
+        profilePhoto:
+          type: ["string", "null"]
+        profileBio:
+          type: ["string", "null"]
+        profileFullname:
+          type: ["string", "null"]
+        maigretProfiles:
+          type: array
+          items:
+            $ref: "#/components/schemas/MaigretProfile"
+        certDomains:
+          type: array
+          items:
+            type: string
+        possibleEmail:
+          type: ["string", "null"]
+        possiblePhone:
+          type: ["string", "null"]
+        summary:
+          $ref: "#/components/schemas/UsernameSummary"
+
+    GitHubProfile:
+      type: object
+      properties:
+        login: { type: string }
+        name: { type: ["string", "null"] }
+        bio: { type: ["string", "null"] }
+        company: { type: ["string", "null"] }
+        location: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        blog: { type: ["string", "null"] }
+        twitterUsername: { type: ["string", "null"] }
+        avatar: { type: string }
+        followers: { type: integer }
+        following: { type: integer }
+        publicRepos: { type: integer }
+        publicGists: { type: integer }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+        hireable: { type: ["boolean", "null"] }
+        profileUrl: { type: string }
+        topRepos:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              description: { type: ["string", "null"] }
+              language: { type: ["string", "null"] }
+              stars: { type: integer }
+              forks: { type: integer }
+              url: { type: string }
+        languages:
+          type: array
+          items: { type: string }
+        organizations:
+          type: array
+          items: { type: string }
+        totalStars: { type: integer }
+        rateLimit:
+          type: ["object", "null"]
+          properties:
+            remaining: { type: integer }
+            limit: { type: integer }
+
+    BreachEntry:
+      type: object
+      properties:
+        name: { type: string }
+        breachDate: { type: string }
+        dataClasses:
+          type: array
+          items: { type: string }
+
+    EmailRep:
+      type: object
+      properties:
+        email: { type: string }
+        reputation:
+          type: string
+          enum: [high, medium, low, none]
+        suspicious: { type: boolean }
+        references: { type: integer }
+        details:
+          type: object
+          properties:
+            blacklisted: { type: boolean }
+            maliciousActivity: { type: boolean }
+            credentialLeaked: { type: boolean }
+            dataBreaches: { type: integer }
+            firstSeen: { type: ["string", "null"] }
+            lastSeen: { type: ["string", "null"] }
+            domainReputation: { type: string }
+
+    UsernameSummary:
+      type: object
+      properties:
+        realName: { type: ["string", "null"] }
+        location: { type: ["string", "null"] }
+        bio: { type: ["string", "null"] }
+        languages:
+          type: array
+          items: { type: string }
+        totalRepos: { type: ["integer", "null"] }
+        totalStars: { type: ["integer", "null"] }
+
+    PlatformProfile:
+      type: object
+      properties:
+        url:
+          type: ["string", "null"]
+        exists:
+          type: boolean
+        bio:
+          type: ["string", "null"]
+        followers:
+          type: ["integer", "null"]
+        displayName:
+          type: ["string", "null"]
+        confidence:
+          type: ["string", "null"]
+
+    SocialMediaLinks:
+      type: object
+      properties:
+        facebook:
+          type: array
+          items:
+            type: string
+        telegram:
+          type: array
+          items:
+            type: string
+        twitter:
+          type: array
+          items:
+            type: string
+        instagram:
+          type: array
+          items:
+            type: string
+        linkedin:
+          type: array
+          items:
+            type: string
+        tiktok:
+          type: array
+          items:
+            type: string
+
+    SearchSummary:
+      type: object
+      required: [id, type, query, status, createdAt]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [name, phone, username, deep]
+        query:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, completed, failed]
+        createdAt:
+          type: string
+        resultsCount:
+          type: ["integer", "null"]
+        confidenceScore:
+          type: ["number", "null"]
+
+    PlatformStats:
+      type: object
+      required: [totalSearches, totalFindings, platformsCovered, avgConfidence]
+      properties:
+        totalSearches:
+          type: integer
+        totalFindings:
+          type: integer
+        platformsCovered:
+          type: integer
+        avgConfidence:
+          type: number
+        searchesByType:
+          type: object
+          properties:
+            name:
+              type: integer
+            phone:
+              type: integer
+            username:
+              type: integer
+            deep:
+              type: integer
+        recentSearchCount:
+          type: integer
+          description: Searches in the last 24 hours
+
+    PlatformInfo:
+      type: object
+      required: [slug, name, category, active]
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+          enum: [social, libyan, professional, messaging, code, other]
+        active:
+          type: boolean
+        url:
+          type: ["string", "null"]
+        libyaSpecific:
+          type: boolean

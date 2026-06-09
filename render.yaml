@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: lyosint
+    runtime: docker
+    plan: starter
+    region: oregon
+    branch: main
+    rootDir: .
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: DATABASE_URL
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ADMIN_USERNAME
+        value: admin
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: VITE_TELEGRAM_BOT_USERNAME
+        value: lyosintbot
+        sync: false
+      - key: PUBLIC_URL
+        sync: false
+      - key: VITE_API_URL
+        value: ""
+        sync: false

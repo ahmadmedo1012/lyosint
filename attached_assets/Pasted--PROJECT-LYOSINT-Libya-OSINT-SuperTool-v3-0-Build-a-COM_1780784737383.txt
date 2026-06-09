@@ -1,0 +1,450 @@
+
+## PROJECT: LYOSINT — Libya OSINT SuperTool v3.0
+
+Build a COMPLETE, FULL-STACK OSINT investigation platform on Replit targeting LIBYA exclusively. This tool searches for individuals by NAME, PHONE NUMBER, or USERNAME across Libyan-specific and international platforms with deep granularity, accuracy, and intelligence.
+
+---
+
+### 🎯 CORE MISSION
+Create a unified, web-based intelligence dashboard that:
+1. Takes a **Libyan name** → finds all associated phone numbers, usernames, addresses, family connections, social media profiles, and public records
+2. Takes a **Libyan phone number (+218)** → identifies the owner, carrier (Libyana/Al-Madar/LibyaPhone), location district, and linked social media accounts
+3. Takes a **username** → searches 400+ platforms (Sherlock-based) plus Libya-specific platforms (Facebook groups, Libyan forums, Telegram channels)
+
+---
+
+### 🏗️ ARCHITECTURE (Full Stack)
+
+**BACKEND (Python FastAPI)**:
+- FastAPI with async support
+- Celery + Redis for task queue (background scraping)
+- SQLite/PostgreSQL via SQLAlchemy for caching results
+- WebSocket for real-time progress updates
+
+**FRONTEND (React + Next.js or Vue.js)**:
+- Tailwind CSS + DaisyUI for dark-themed hacker-style UI
+- Real-time result streaming via WebSocket
+- PDF/CSV export of investigation results
+- Responsive design for mobile/desktop
+
+---
+
+### 📦 PYTHON LIBRARIES & DEPENDENCIES
+
+```txt
+# requirements.txt
+fastapi
+uvicorn
+celery
+redis
+sqlalchemy
+alembic
+phonenumbers
+phonenumberslite
+requests
+aiohttp
+beautifulsoup4
+lxml
+selenium
+webdriver-manager
+fake-useragent
+python-whois
+dnspython
+shodan
+pysherlock (custom wrapper)
+sherlock-project (submodule)
+socialscan
+holehe
+emailrep
+theHarvester (custom wrapper)
+python-telegram-bot
+tweepy
+instagram-private-api
+facebook-scraper
+linkedin-scraper (unofficial)
+tiktok-scraper
+whatsapp-web.js (via Node bridge)
+pyppeteer
+playwright
+pydantic
+python-multipart
+Pillow
+reportlab (PDF generation)
+openpyxl (Excel export)
+httpx
+selenium-wire
+cloudscraper
+capsolver (captcha solving)
+```
+
+---
+
+### 🔍 MODULE 1: NAME-BASED SEARCH (بحث بالاسم)
+
+**Input**: Arabic or English name (full name, partial, or known alias)
+
+**Libya-Specific Search Targets**:
+- 📞 **PhoneLibya.ly** — Search name against Libyan phone directory
+- 📖 **Libya Yellow Pages (libyayponline.com)** — Scrape business/personal listings
+- 🏛️ **Libyan court/public records** (where available) — Marriage, property, legal notices
+- 🎓 **Libyan university databases** — Student/staff directories (Tripoli Uni, Benghazi Uni, Sebha Uni, etc.)
+- 🏥 **Libyan doctor/hospital directories**
+- 📰 **Libyan news archives** — Search name across Libya Herald, Libya Observer, Al-Wasat, etc.
+- 👥 **Facebook Libya groups** — Search name in public Libyan groups (7.5M+ FB users in Libya)
+- 💬 **Telegram Libya channels** — Search username in Libyan public channels/groups
+- 📱 **WhatsApp groups (scraped)** — Known leaked group member lists
+- 📄 **Google dorking engine** — Automate: `site:.ly "الاسم الكامل"`, `filetype:pdf "الاسم" site:gov.ly`
+- 🔗 **People-search aggregators** — FastPeopleSearch, ZabaSearch, Pipl, Spokeo (name → phone/address)
+- 🏢 **Libyan company registry** — Commercial Register (سجل تجاري) lookups
+- 🆔 **National ID number patterns** — Inference based on name, region, and known patterns
+
+**Output**: JSON array of:
+```json
+{
+  "full_name": "علي محمد المبروك",
+  "possible_variations": ["Ali M. Mabrouk", "Ali Mohamed Elmabrouk"],
+  "phone_numbers": ["+218912345678", "+218921234567"],
+  "carrier": "Al-Madar",
+  "region_hint": "Tripoli",
+  "social_media": {
+    "facebook": ["facebook.com/ali.mabrouk.xxx"],
+    "telegram": ["t.me/ali_mabrouk"],
+    "twitter": ["x.com/AliMabrouk"],
+    "instagram": ["instagram.com/ali.mabrouk"],
+    "linkedin": ["linkedin.com/in/ali-mabrouk"]
+  },
+  "addresses": ["طرابلس, سوق الجمعة"],
+  "associated_names": ["فاطمة المبروك", "محمد المبروك"],
+  "sources": ["phonelibya.ly", "facebook.com", "libyayponline.com"]
+}
+```
+
+---
+
+### 📱 MODULE 2: PHONE NUMBER SEARCH (بحث برقم الهاتف)
+
+**Input**: Libyan phone number `+218912345678` (also accepts local format `0912345678`)
+
+**Libya-Specific Processing**:
+1. **Format validation** using `phonenumbers` library with Libya (+218) rules
+2. **Carrier identification**:
+   - `091`, `093` → Al-Madar
+   - `092`, `094` → Libyana
+   - `095` → LibyaPhone
+3. **Geographic inference** from prefix (some prefixes are region-specific)
+4. **PhoneLibya.ly** — Scrape for owner name associated with number
+5. **Truecaller lookup** (via unofficial API/scraper if available)
+6. **Reverse phone search APIs** — NumLookup, FreeCarrierLookup, CallerID
+7. **Google dork**: `"0912345678" site:.ly`, `"+218912345678" filetype:pdf`
+8. **Social media search** — Search number across Telegram, Facebook, WhatsApp
+9. **Facebook Graph search**: `phone:"0912345678"` in public Libyan groups
+10. **Telegram phone search**: Using Telethon/MTProto to find user by phone
+11. **Leaked DB search**: Check against known Libyan data breaches (if available)
+12. **WhatsApp check**: Using whatsapp-web.js to verify if number is on WhatsApp
+
+**Output**:
+```json
+{
+  "phone": "+218912345678",
+  "valid": true,
+  "national_format": "091 234 5678",
+  "carrier": "Al-Madar",
+  "line_type": "mobile",
+  "possible_owner": "علي محمد المبروك",
+  "possible_owner_en": "Ali Mohamed Mabrouk",
+  "region": "Tripoli (likely)",
+  "whatsapp": true,
+  "telegram_registered": true,
+  "facebook_linked": ["facebook.com/search/?q=0912345678"],
+  "breach_info": [],
+  "historical_records": [
+    {"source": "phonelibya.ly", "date": "2024-03-15", "associated_name": "Ali M."}
+  ],
+  "confidence_score": 0.87
+}
+```
+
+---
+
+### 👤 MODULE 3: USERNAME-BASED SEARCH (بحث باسم المستخدم)
+
+**Input**: Username (e.g., `ali_mabrouk`, `@ali_mabrouk`, `ali.mabrouk.94`)
+
+**Libya + International Search**:
+1. **Sherlock engine** — Search 400+ platforms for username existence
+2. **Telegram**: `t.me/{username}` → scrape profile photo, bio, last seen, phone (if public)
+3. **Facebook**: Search username in Libya-specific groups
+4. **Instagram**: Scrape profile, followers, following, bio, posts (via instagram-private-api)
+5. **Twitter/X**: Search username, tweets, mentions (Libyan users: ~560K)
+6. **LinkedIn**: Search username, company, location (Libyan users: ~604K)
+7. **TikTok**: Search username (growing rapidly in Libya)
+8. **Snapchat**: Quick add by username check
+9. **Libyan forums**: Search username on Libyan forums (e.g., libya-mostakbal.com, libya-al-mostakbal.org)
+10. **Discord**: Username search in Libyan servers
+11. **GitHub**: Username search (tech-savvy Libyans)
+12. **NameMC**: Minecraft username search (popular among Libyan youth)
+13. **WhatsApp**: Group member lists scraped (username matching)
+
+**Output**:
+```json
+{
+  "username": "ali_mabrouk",
+  "profiles_found": {
+    "facebook": {"url": "facebook.com/ali_mabrouk.94", "exists": true, "bio": "...", "friends_count": 1200},
+    "telegram": {"url": "t.me/ali_mabrouk", "exists": true, "bio": "...", "photo": true},
+    "instagram": {"url": "instagram.com/ali.mabrouk", "exists": true, "followers": 3400},
+    "twitter": {"url": "x.com/AliMabrouk_LY", "exists": true, "tweets": 230},
+    "linkedin": {"url": "linkedin.com/in/ali-mabrouk", "exists": true, "company": "..."},
+    "tiktok": {"url": "tiktok.com/@ali_mabrouk", "exists": false},
+    "snapchat": {"exists": true, "display_name": "Ali Mabrouk"},
+    "github": {"url": "github.com/ali-mabrouk", "exists": true},
+    "discord": {"id": "123456789012345678", "exists": true}
+  },
+  "total_platforms_searched": 400,
+  "total_found": 9,
+  "possible_email": "ali.mabrouk@gmail.com",
+  "possible_phone": null,
+  "cross_references": [
+    {"profile": "facebook", "matches_name": "ali.mabrouk", "confidence": "high"},
+    {"profile": "telegram", "matches_phone": "0912345678", "confidence": "medium"}
+  ]
+}
+```
+
+---
+
+### 🔬 MODULE 4: DEEP CROSS-REFERENCE & CORRELATION ENGINE
+
+This is the **JUICY PART** — the engine that ties everything together:
+
+- **Phone ↔ Name ↔ Username Correlation**: Any search result that yields a phone number triggers automatic name search and username search
+- **Family Tree Inference**: When the same last name + same address appears in multiple records, suggests family relationships
+- **Network Mapping**: Graph visualization showing connections between people, phones, addresses, and usernames
+- **Timeline Builder**: Chronological ordering of when each piece of data was first/last seen
+- **Confidence Scoring**: Algorithm that weights results by source reliability, recency, and cross-references
+- **Duplicate Merging**: Fuzzy string matching to merge similar names (Arabic/English variants)
+
+---
+
+### 🧠 MODULE 5: AI-ENHANCED DETECTION & ENRICHMENT
+
+- **NLP for Arabic name parsing**: Handle "علي محمد المبروك" → identify first, middle, last, tribe/family name
+- **Name variant generator**: Generate all possible spellings from Arabic → English (e.g., Mabrouk/Mabrook/Mabruq/Elmabrouk/Almabrouk)
+- **OCR for scanned documents**: If PDFs/images are found in Google dork results, extract Arabic text
+- **Sentiment/risk analysis**: Classify profiles as "high risk / low risk" based on content
+
+---
+
+### 💻 FRONTEND UI COMPONENTS
+
+**Main Dashboard**:
+- 3 search modes: By Name | By Phone | By Username
+- One-click "Deep Search All" button that runs all 3 modes simultaneously
+- Dark theme with hacker aesthetic (matrix green accents or dark blue)
+
+**Results Display**:
+- **Profile Card**: Shows full dossier on found person with avatar, name, phone, addresses
+- **Graph View**: D3.js/vis.js interactive graph showing connections (people, phones, platforms)
+- **Timeline View**: Chronological data points
+- **Table View**: Raw data table with sort/filter
+- **Map View**: Leaflet.js map showing geographic locations (cities in Libya)
+
+**Export Features**:
+- Export as PDF (professional investigation report)
+- Export as CSV/Excel (for analysts)
+- Export as JSON (raw data for developers)
+- Share link (encrypted, time-limited)
+
+**Admin Panel**:
+- API key management
+- Search history
+- Rate limiting controls
+- Task queue monitoring (Celery Flower)
+
+---
+
+### 📁 PROJECT STRUCTURE
+
+```
+lyosint/
+├── backend/
+│   ├── app/
+│   │   ├── main.py              # FastAPI entry point
+│   │   ├── config.py            # Settings, API keys
+│   │   ├── database.py          # SQLAlchemy models
+│   │   ├── routers/
+│   │   │   ├── name_search.py   # Name search endpoints
+│   │   │   ├── phone_search.py  # Phone search endpoints
+│   │   │   ├── username_search.py
+│   │   │   └── reports.py       # PDF/export endpoints
+│   │   ├── services/
+│   │   │   ├── sherlock_wrapper.py    # Sherlock integration
+│   │   │   ├── phone_libya.py         # PhoneLibya.ly scraper
+│   │   │   ├── social_scraper.py      # Facebook/Insta/Telegram
+│   │   │   ├── google_dorker.py       # Automated Google dorking
+│   │   │   ├── correlation_engine.py  # Cross-reference logic
+│   │   │   └── ocr_processor.py      # OCR for scanned docs
+│   │   ├── tasks/
+│   │   │   ├── celery_tasks.py   # Async background tasks
+│   │   │   └── scheduler.py      # Periodic tasks
+│   │   └── utils/
+│   │       ├── libya_helpers.py  # Libya-specific utils
+│   │       └── ratelimiter.py
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   └── celery_worker.py
+├── frontend/
+│   ├── src/
+│   │   ├── pages/
+│   │   │   ├── index.jsx        # Main dashboard
+│   │   │   ├── search.jsx       # Search results page
+│   │   │   ├── graph.jsx        # Graph visualization
+│   │   │   └── export.jsx       # Export page
+│   │   ├── components/
+│   │   │   ├── SearchBar.jsx
+│   │   │   ├── ResultCard.jsx
+│   │   │   ├── NetworkGraph.jsx
+│   │   │   ├── TimelineView.jsx
+│   │   │   └── MapView.jsx
+│   │   └── utils/
+│   │       └── api.js
+│   ├── package.json
+│   └── tailwind.config.js
+├── data/
+│   ├── libya_phone_prefixes.json
+│   ├── libya_cities.json
+│   └── libya_facebook_groups.json
+├── scripts/
+│   ├── seed_phone_prefixes.py
+│   └── update_platforms.py
+├── tests/
+├── .env.example
+├── docker-compose.yml
+└── README.md
+```
+
+---
+
+### 🔐 LIBYA-SPECIFIC DATA FILES REQUIRED
+
+**libya_phone_prefixes.json**:
+```json
+{
+  "libyan_operators": {
+    "almadar": {"prefixes": ["091", "093"], "market_share": 0.35, "users_millions": 3.5},
+    "libyana": {"prefixes": ["092", "094"], "market_share": 0.60, "users_millions": 5.0},
+    "libyaphone": {"prefixes": ["095"], "market_share": 0.05, "users_millions": 0.4}
+  },
+  "area_codes": {
+    "tripoli": "021",
+    "benghazi": "061",
+    "sabha": "071",
+    "misrata": "051",
+    "zwara": "031",
+    "gharyan": "041",
+    "tubruq": "062",
+    "al_bayda": "064",
+    "derna": "063",
+    "ghat": "072",
+    "murzuq": "073",
+    "sirte": "054",
+    "zawiya": "023",
+    "khoms": "022",
+    "nalut": "042",
+    "mizdah": "043",
+    "bent_baya": "032"
+  }
+}
+```
+
+**libya_social_platforms.json**:
+```json
+{
+  "libyan_platforms": [
+    {"name": "Facebook", "libya_users": 7500000, "searchable": true, "libya_specific_groups": ["ليبيا 24", "سوق ليبيا", "أخبار ليبيا", "وظائف ليبيا", "عقارات ليبيا"]},
+    {"name": "Facebook Messenger", "libya_users": 6600000, "searchable": false},
+    {"name": "Instagram", "libya_users": 2100000, "searchable": true},
+    {"name": "Telegram", "libya_users": 1500000, "searchable": true, "libya_channels": ["ليبيا الأحرار", "قنوات ليبية"]},
+    {"name": "YouTube", "libya_users": 1200000, "searchable": true},
+    {"name": "LinkedIn", "libya_users": 604000, "searchable": true},
+    {"name": "Twitter/X", "libya_users": 560000, "searchable": true},
+    {"name": "TikTok", "libya_users": 500000, "searchable": true},
+    {"name": "Snapchat", "libya_users": 350000, "searchable": true},
+    {"name": "WhatsApp", "libya_users": 7000000, "searchable": false}
+  ],
+  "libyan_forums": [
+    "libya-mostakbal.com",
+    "libya-al-mostakbal.org",
+    "alwasat.ly/forum",
+    "libyaherald.com",
+    "libyayponline.com",
+    "arabji.com/Libya",
+    "phonelibya.ly"
+  ]
+}
+```
+
+---
+
+### 🧪 IMPLEMENTATION STEPS ON REPLIT
+
+1. **Create Replit Project**: Use "Python (FastAPI)" template or "Next.js" template
+2. **Set environment variables** in `.env`:
+   ```
+   CELERY_BROKER_URL=redis://localhost:6379
+   DATABASE_URL=sqlite:///lyosint.db
+   SECRET_KEY=your-secret-key-here
+   SHODAN_API_KEY=
+   TELEGRAM_API_ID=
+   TELEGRAM_API_HASH=
+   INSTAGRAM_USERNAME=
+   INSTAGRAM_PASSWORD=
+   TWITTER_BEARER_TOKEN=
+   ```
+3. **Backend**: Create `backend/app/` structure and implement all routers
+4. **Frontend**: Create React app with Tailwind, implement all views
+5. **Sherlock integration**: Clone sherlock as submodule, wrap in Python API
+6. **Test each module**: run `uvicorn backend.app.main:app --port 8080`
+7. **Deploy**: Replit will auto-deploy on port 8080
+
+---
+
+### 💎 KEY SELLING POINTS (WHY THIS PROJECT IS UNIQUE)
+
+1. **Libya-First**: No other OSINT tool is built SPECIFICALLY for Libya's phone formats, carriers, and platforms
+2. **Tri-Modal Search**: Name + Phone + Username in one unified interface — most tools do one, not all three
+3. **Cross-Reference Engine**: The correlation engine automatically links results across all 3 searches
+4. **Sherlock + Libya Customs**: 400 platforms + Libyan-specific sources = unbeatable coverage
+5. **Real-Time WebSocket**: Results stream live, not a loading spinner
+6. **Multi-Export**: PDF, CSV, JSON, Graph, Timeline — for professional reports
+7. **Arabic-Handling**: Proper RTL, Arabic NLP, name variant generation, OCR
+8. **Replit-Ready**: Fully containerized, async, deployable in one click
+
+---
+
+### ⚠️ RATE LIMITING & ETHICAL SAFEGUARDS
+- Rate limiter per IP (10 requests/min for unauthenticated users)
+- All searches are against PUBLICLY AVAILABLE data only
+- No brute-force, no DDoS, no illegal database access
+- CAPTCHA solving only on legitimate public sites
+- Logging of all searches for accountability
+- "Safeguards mode" toggle: if ON, blocks searching for minors and protected persons
+
+---
+
+**Build this now. Make it the most powerful OSINT tool for Libya that has ever existed.**
+```
+
+---
+
+## 💡 ملخص + نصائح إضافية لـ Replit
+
+| العنصر | التفاصيل |
+|--------|----------|
+| **قالب Replit المناسب** | استخدم قالب **Python + Nix** أو **Next.js** — أنصحك بـ Python FastAPI للسيرفر الأساسي |
+| **المكتبات المطلوبة أولاً** | `phonenumbers`, `fastapi`, `uvicorn`, `requests`, `beautifulsoup4`, `sherlock-project` |
+| **خطة العمل** | ابدأ بـ **Module 2 (Phone Search)** لأنه الأسهل والأقوى في ليبيا، ثم Module 1 (Name)، ثم Module 3 (Username) |
+| **أقوى مصدر ليبي** | `PhoneLibya.ly` + Facebook Libya Groups + Telegram Libyan Channels — هذه هي الكنوز الحقيقية |
+| **عدد مستخدمي فيسبوك في ليبيا** | **7.5 مليون** — 86% من السكان! هذا هو المصدر الأضخم |
+| **أرقام ليبيا** | +218، البادئات: 091/093 (المدار)، 092/094 (ليبيانا)، 095 (ليبيا فون) |
+

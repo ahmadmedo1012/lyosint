@@ -1,0 +1,76 @@
+## PROJECT: LYOSINT — Libya OSINT SuperTool v3.0
+
+Build a COMPLETE, FULL-STACK OSINT investigation platform on Replit targeting LIBYA exclusively. This tool searches for individuals by NAME, PHONE NUMBER, or USERNAME across Libyan-specific and international platforms with deep granularity, accuracy, and intelligence.
+
+---
+
+### 🎯 CORE MISSION
+Create a unified, web-based intelligence dashboard that:
+1. Takes a **Libyan name** → finds all associated phone numbers, usernames, addresses, family connections, social media profiles, and public records
+2. Takes a **Libyan phone number (+218)** → identifies the owner, carrier (Libyana/Al-Madar/LibyaPhone), location district, and linked social media accounts
+3. Takes a **username** → searches 400+ platforms (Sherlock-based) plus Libya-specific platforms (Facebook groups, Libyan forums, Telegram channels)
+
+---
+
+### 🏗️ ARCHITECTURE (Full Stack)
+
+**BACKEND (Python FastAPI)**:
+- FastAPI with async support
+- Celery + Redis for task queue (background scraping)
+- SQLite/PostgreSQL via SQLAlchemy for caching results
+- WebSocket for real-time progress updates
+
+**FRONTEND (React + Next.js or Vue.js)**:
+- Tailwind CSS + DaisyUI for dark-themed hacker-style UI
+- Real-time result streaming via WebSocket
+- PDF/CSV export of investigation results
+- Responsive design for mobile/desktop
+
+---
+
+### 📦 PYTHON LIBRARIES & DEPENDENCIES
+
+```txt
+# requirements.txt
+fastapi
+uvicorn
+celery
+redis
+sqlalchemy
+alembic
+phonenumbers
+phonenumberslite
+requests
+aiohttp
+beautifulsoup4
+lxml
+selenium
+webdriver-manager
+fake-useragent
+python-whois
+dnspython
+shodan
+pysherlock (custom wrapper)
+sherlock-project (submodule)
+socialscan
+holehe
+emailrep
+theHarvester (custom wrapper)
+python-telegram-bot
+tweepy
+instagram-private-api
+facebook-scraper
+linkedin-scraper (unofficial)
+tiktok-scraper
+whatsapp-web.js (via Node bridge)
+pyppeteer
+playwright
+pydantic
+python-multipart
+Pillow
+reportlab (PDF generation)
+openpyxl (Excel export)
+httpx
+selenium-wire
+cloudscraper
+capsolver (captcha solving)

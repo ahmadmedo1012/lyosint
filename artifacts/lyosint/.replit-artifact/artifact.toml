@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "LYOSINT"
+version = "1.0.0"
+id = "artifacts/lyosint"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19190
+
+[services.development]
+run = "pnpm --filter @workspace/lyosint run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/lyosint", "run", "build" ]
+publicDir = "artifacts/lyosint/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19190"
+BASE_PATH = "/"
