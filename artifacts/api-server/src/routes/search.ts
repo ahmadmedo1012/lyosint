@@ -86,15 +86,23 @@ router.post("/search/deep", requireAuth, requireQuota, async (req, res) => {
   const { name, phone, username } = parsed.data;
   const query = [name, phone, username].filter(Boolean).join(" | ");
   const id = randomUUID();
-  await db.insert(searchesTable).values({ id, type: "deep", query: query || "deep search", status: "pending", progress: 0, platformsTotal: 455, platformsSearched: 0 });
+
+  // Deep search spawns sub-searches with unique IDs
+  const subIds: string[] = [];
+  const tasks: Promise<void>[] = [];
+  if (name) { const sid = randomUUID(); subIds.push(sid); tasks.push(runNameSearch(sid, name)); }
+  if (phone) { const sid = randomUUID(); subIds.push(sid); tasks.push(runPhoneSearch(sid, phone)); }
+  if (username) { const sid = randomUUID(); subIds.push(sid); tasks.push(runUsernameSearch(sid, username)); }
+
+  const platformsTotal = subIds.length > 0 ? subIds.length * 150 : 0;
+  await db.insert(searchesTable).values({ id, type: "deep", query: query || "deep search", status: "running", progress: 0, platformsTotal, platformsSearched: 0 });
   await incrementCount(user.id);
-  Promise.all([
-    name ? runNameSearch(id, name) : Promise.resolve(),
-    phone ? runPhoneSearch(id, phone) : Promise.resolve(),
-    username ? runUsernameSearch(id, username) : Promise.resolve(),
-  ])
-    .then(() => db.update(searchesTable).set({ status: "completed", progress: 100, completedAt: new Date() }).where(eq(searchesTable.id, id)))
-    .catch(() => {});
+
+  // Fire sub-searches in parallel
+  Promise.allSettled(tasks).then(() => {
+    db.update(searchesTable).set({ status: "completed", progress: 100, completedAt: new Date() }).where(eq(searchesTable.id, id));
+  }).catch(() => {});
+
   const [task] = await db.select().from(searchesTable).where(eq(searchesTable.id, id));
   res.status(202).json(toSearchTask(task));
 });

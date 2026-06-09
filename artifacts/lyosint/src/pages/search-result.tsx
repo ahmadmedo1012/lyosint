@@ -1,5 +1,5 @@
 import { useParams } from "wouter";
-import { useGetSearchStatus, getGetSearchStatusQueryKey, useGetSearchResult } from "@workspace/api-client-react";
+import { useGetSearchStatus, getGetSearchStatusQueryKey, useGetSearchResult, getGetSearchResultQueryKey } from "@workspace/api-client-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -192,10 +192,10 @@ export default function SearchResultPage() {
   const isFailed = statusData?.status === "failed";
   const isRunning = statusData?.status === "running" || statusData?.status === "pending";
 
-  const { data: resultData, isLoading: resultLoading } = useGetSearchResult(id!, {
+  const { data: resultData } = useGetSearchResult(id!, {
     query: {
+      queryKey: getGetSearchResultQueryKey(id!),
       enabled: !!id && (isCompleted || isRunning),
-      queryKey: getGetSearchStatusQueryKey(id!) as unknown as readonly unknown[],
       refetchInterval: (query: { state: { data: any } }) => {
         const d = query.state.data;
         if (isCompleted || isFailed) return false;

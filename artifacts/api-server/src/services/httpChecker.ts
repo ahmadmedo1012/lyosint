@@ -584,7 +584,10 @@ async function checkOnePlatform(
   }
 }
 
-const CONCURRENCY = 8;
+const CONCURRENCY = 16;
+
+// ── Result cache (re-checking same username within 60s returns cached) ────────
+const httpResultCache = new Map<string, { results: PlatformResult[]; expires: number }>();
 
 async function runWithConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
   const results: T[] = [];
@@ -601,6 +604,10 @@ async function runWithConcurrency<T>(tasks: (() => Promise<T>)[], limit: number)
 }
 
 export async function checkUsername(username: string, timeoutMs?: number): Promise<PlatformResult[]> {
+  const cacheKey = `http:${username}:${timeoutMs ?? 5000}`;
+  const cached = httpResultCache.get(cacheKey);
+  if (cached && cached.expires > Date.now()) return cached.results;
+
   const githubToken = await getSetting("github_token");
   const timeout = timeoutMs ?? 5000;
 
@@ -616,5 +623,7 @@ export async function checkUsername(username: string, timeoutMs?: number): Promi
       verified: false,
     }));
 
-  return [...verifiedResults, ...manualResults];
+  const all = [...verifiedResults, ...manualResults];
+  httpResultCache.set(cacheKey, { results: all, expires: Date.now() + 60_000 });
+  return all;
 }
