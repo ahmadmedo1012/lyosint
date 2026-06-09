@@ -18,26 +18,12 @@ import { requireAuth, requireQuota } from "../middleware/requireAuth";
 import { logger } from "../lib/logger";
 
 const router = Router();
-const FREE_LIMIT = 3;
-
-async function getUserFromToken(token: string | undefined) {
-  if (!token) return null;
-  const t = token.replace("Bearer ", "");
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.sessionToken, t));
-  return user ?? null;
-}
 
 async function incrementCount(userId: string) {
   const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (u) {
     await db.update(usersTable).set({ searchCount: u.searchCount + 1, updatedAt: new Date() }).where(eq(usersTable.id, userId));
   }
-}
-
-function checkCanSearch(user: typeof usersTable.$inferSelect | null): boolean {
-  if (!user) return false;
-  const isActive = user.isSubscribed && user.subscriptionExpiry && user.subscriptionExpiry > new Date();
-  return !!(isActive || user.searchCount < FREE_LIMIT);
 }
 
 router.post("/search/name", requireAuth, requireQuota, async (req, res) => {
@@ -48,7 +34,7 @@ router.post("/search/name", requireAuth, requireQuota, async (req, res) => {
   const id = randomUUID();
   await db.insert(searchesTable).values({ id, type: "name", query: name, status: "pending", progress: 0, platformsTotal: 40, platformsSearched: 0 });
   await incrementCount(user.id);
-  runNameSearch(id, name).catch(() => {});
+  runNameSearch(id, name).catch((err) => { logger.error(err, "name search failed"); });
   const [task] = await db.select().from(searchesTable).where(eq(searchesTable.id, id));
   res.status(202).json(toSearchTask(task));
 });
@@ -61,7 +47,7 @@ router.post("/search/phone", requireAuth, requireQuota, async (req, res) => {
   const id = randomUUID();
   await db.insert(searchesTable).values({ id, type: "phone", query: phone, status: "pending", progress: 0, platformsTotal: 15, platformsSearched: 0 });
   await incrementCount(user.id);
-  runPhoneSearch(id, phone).catch(() => {});
+  runPhoneSearch(id, phone).catch((err) => { logger.error(err, "phone search failed"); });
   const [task] = await db.select().from(searchesTable).where(eq(searchesTable.id, id));
   res.status(202).json(toSearchTask(task));
 });
@@ -74,7 +60,7 @@ router.post("/search/username", requireAuth, requireQuota, async (req, res) => {
   const id = randomUUID();
   await db.insert(searchesTable).values({ id, type: "username", query: username, status: "pending", progress: 0, platformsTotal: 400, platformsSearched: 0 });
   await incrementCount(user.id);
-  runUsernameSearch(id, username).catch(() => {});
+  runUsernameSearch(id, username).catch((err) => { logger.error(err, "username search failed"); });
   const [task] = await db.select().from(searchesTable).where(eq(searchesTable.id, id));
   res.status(202).json(toSearchTask(task));
 });
@@ -98,10 +84,9 @@ router.post("/search/deep", requireAuth, requireQuota, async (req, res) => {
   await db.insert(searchesTable).values({ id, type: "deep", query: query || "deep search", status: "running", progress: 0, platformsTotal, platformsSearched: 0 });
   await incrementCount(user.id);
 
-  // Fire sub-searches in parallel
   Promise.allSettled(tasks).then(() => {
-    db.update(searchesTable).set({ status: "completed", progress: 100, completedAt: new Date() }).where(eq(searchesTable.id, id));
-  }).catch(() => {});
+    db.update(searchesTable).set({ status: "completed", progress: 100, completedAt: new Date() }).where(eq(searchesTable.id, id)).catch((err) => { logger.error(err, "deep search update failed"); });
+  });
 
   const [task] = await db.select().from(searchesTable).where(eq(searchesTable.id, id));
   res.status(202).json(toSearchTask(task));

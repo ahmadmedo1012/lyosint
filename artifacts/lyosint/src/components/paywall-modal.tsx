@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Lock, Send, Loader2, Crown } from "lucide-react";
 import { useAuth } from "@/contexts/auth";
+import { SUBSCRIPTION_PRICE, SUBSCRIPTION_PRICE_LABEL, SUPPORT_EMAIL } from "@/lib/constants";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -26,8 +27,8 @@ export function PaywallModal({ open, onClose }: PaywallModalProps) {
       await refreshUser();
       setDone(true);
       setTimeout(() => { setDone(false); onClose(); }, 1800);
-    } catch {
-      //
+    } catch (err) {
+      console.error("subscribe failed", err);
     } finally {
       setLoading(false);
     }
@@ -62,7 +63,7 @@ export function PaywallModal({ open, onClose }: PaywallModalProps) {
           {/* Price */}
           <div className="bg-primary/6 border border-primary/15 rounded-lg p-4 text-center space-y-0.5">
             <div className="flex items-end justify-center gap-1">
-              <span className="text-4xl font-bold text-primary font-mono">30</span>
+              <span className="text-4xl font-bold text-primary font-mono">{SUBSCRIPTION_PRICE}</span>
               <span className="text-sm text-muted-foreground mb-1.5 font-medium">دينار ليبي</span>
             </div>
             <div className="text-[11px] text-muted-foreground font-mono uppercase">لكل شهر · وصول كامل</div>
@@ -91,13 +92,13 @@ export function PaywallModal({ open, onClose }: PaywallModalProps) {
                 className="w-full h-11 font-bold gap-2"
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crown className="w-4 h-4" />}
-                اشترك الآن — 30 دينار / شهر
+                اشترك الآن — {SUBSCRIPTION_PRICE} دينار / شهر
               </Button>
 
               <div className="bg-secondary/30 rounded-lg px-3 py-2.5 border border-border/40 text-center">
                 <p className="text-[11px] text-muted-foreground flex items-center justify-center gap-1.5 flex-wrap">
                   <Send className="w-3 h-3 text-primary shrink-0" />
-                  للدفع: حوّل 30 دينار ثم راسلنا على تيليقرام
+                  للدفع: حوّل {SUBSCRIPTION_PRICE} دينار ثم راسلنا على تيليقرام
                   <a href="https://t.me/lyosint_support" target="_blank" rel="noopener noreferrer"
                     className="text-primary font-bold hover:underline" dir="ltr">
                     @lyosint_support

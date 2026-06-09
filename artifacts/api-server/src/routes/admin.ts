@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response, type NextFunction } from "express";
 import { randomUUID, timingSafeEqual, createHash } from "crypto";
 import { db, usersTable, searchesTable } from "@workspace/db";
 import { eq, desc, count } from "drizzle-orm";
@@ -45,9 +45,9 @@ setInterval(() => {
   for (const [k, v] of adminSessions) {
     if (v.expiresAt < now) adminSessions.delete(k);
   }
-}, 60 * 60 * 1000);
+}, 5 * 60 * 1000);
 
-async function requireAdminToken(req: any, res: any, next: any) {
+async function requireAdminToken(req: Request, res: Response, next: NextFunction) {
   const token =
     req.headers["x-admin-token"] ??
     req.headers.authorization?.replace("Bearer ", "");
@@ -169,9 +169,9 @@ router.post("/admin/users/:id/subscribe", requireAdminToken, async (req, res) =>
     const [updated] = await db
       .update(usersTable)
       .set({ isSubscribed: true, subscribedAt: new Date(), subscriptionExpiry: expiry, updatedAt: new Date() })
-      .where(eq(usersTable.id, req.params.id)).returning();
+      .where(eq(usersTable.id, String(req.params.id))).returning();
     if (!updated) { res.status(404).json({ error: "المستخدم غير موجود" }); return; }
-    res.json({ ok: true, user: toPublicUser(updated) });
+    res.json({ ok: true, user: await toPublicUser(updated) });
   } catch (err) {
     logger.error(err, "admin/subscribe error");
     res.status(500).json({ error: "خطأ في الخادم" });
@@ -183,9 +183,9 @@ router.post("/admin/users/:id/unsubscribe", requireAdminToken, async (req, res) 
     const [updated] = await db
       .update(usersTable)
       .set({ isSubscribed: false, subscriptionExpiry: null, updatedAt: new Date() })
-      .where(eq(usersTable.id, req.params.id)).returning();
+      .where(eq(usersTable.id, String(req.params.id))).returning();
     if (!updated) { res.status(404).json({ error: "المستخدم غير موجود" }); return; }
-    res.json({ ok: true, user: toPublicUser(updated) });
+    res.json({ ok: true, user: await toPublicUser(updated) });
   } catch (err) {
     res.status(500).json({ error: "خطأ في الخادم" });
   }
@@ -196,9 +196,9 @@ router.post("/admin/users/:id/reset-quota", requireAdminToken, async (req, res) 
     const [updated] = await db
       .update(usersTable)
       .set({ searchCount: 0, updatedAt: new Date() })
-      .where(eq(usersTable.id, req.params.id)).returning();
+      .where(eq(usersTable.id, String(req.params.id))).returning();
     if (!updated) { res.status(404).json({ error: "المستخدم غير موجود" }); return; }
-    res.json({ ok: true, user: toPublicUser(updated) });
+    res.json({ ok: true, user: await toPublicUser(updated) });
   } catch (err) {
     res.status(500).json({ error: "خطأ في الخادم" });
   }
@@ -206,7 +206,7 @@ router.post("/admin/users/:id/reset-quota", requireAdminToken, async (req, res) 
 
 router.delete("/admin/users/:id", requireAdminToken, async (req, res) => {
   try {
-    await db.delete(usersTable).where(eq(usersTable.id, req.params.id));
+    await db.delete(usersTable).where(eq(usersTable.id, String(req.params.id)));
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: "خطأ في الخادم" });
@@ -235,7 +235,7 @@ router.get("/admin/settings", requireAdminToken, async (req, res) => {
 
 router.put("/admin/settings/:key", requireAdminToken, async (req, res) => {
   try {
-    const { key } = req.params;
+    const key = String(req.params.key);
     const { value } = req.body ?? {};
 
     const allowed = DEFINED_SERVICES.some((s) => s.key === key);
@@ -256,7 +256,7 @@ router.put("/admin/settings/:key", requireAdminToken, async (req, res) => {
 
 router.delete("/admin/settings/:key", requireAdminToken, async (req, res) => {
   try {
-    await deleteSetting(req.params.key);
+    await deleteSetting(String(req.params.key));
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: "خطأ في الخادم" });
@@ -290,7 +290,7 @@ router.get("/admin/system-config", requireAdminToken, async (req, res) => {
 
 router.put("/admin/system-config/:key", requireAdminToken, async (req, res) => {
   try {
-    const { key } = req.params;
+    const key = String(req.params.key);
     const { value } = req.body ?? {};
 
     const def = SYSTEM_CONFIG_DEFS.find((d) => d.key === key);

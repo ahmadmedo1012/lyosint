@@ -3,12 +3,16 @@ import { createHmac, randomUUID } from "crypto";
 import { db, usersTable, pendingLoginsTable } from "@workspace/db";
 import { and, eq, lt } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { getSystemConfigNumber } from "../services/settingsService";
+import { getCachedUser, setCachedUser, clearSessionCache } from "../middleware/requireAuth";
 
 const router = Router();
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
-const FREE_SEARCH_LIMIT = 3;
-const IS_DEV = process.env.NODE_ENV !== "production";
+
+async function getFreeLimit(): Promise<number> {
+  return getSystemConfigNumber("sys_free_search_quota");
+}
 
 // Cleanup expired login tokens from DB every 5 minutes
 setInterval(async () => {
@@ -46,7 +50,7 @@ router.post("/auth/telegram", async (req, res) => {
       res.status(401).json({ error: "توقيع تيليقرام غير صالح" }); return;
     }
     const user = await upsertUser({ telegramId: String(id), firstName: first_name, lastName: last_name, username, photoUrl: photo_url });
-    res.json({ sessionToken: user.sessionToken, user: toPublicUser(user) });
+    res.json({ sessionToken: user.sessionToken, user: await toPublicUser(user) });
   } catch (err) {
     logger.error(err, "auth/telegram error");
     res.status(500).json({ error: "خطأ في الخادم" });
@@ -107,30 +111,44 @@ router.post("/auth/bot-poll", async (req, res) => {
     username: pending.username ?? undefined,
     photoUrl: pending.photoUrl ?? undefined,
   });
-  res.json({ ready: true, sessionToken: user.sessionToken, user: toPublicUser(user) });
+  res.json({ ready: true, sessionToken: user.sessionToken, user: await toPublicUser(user) });
 });
 
 router.get("/auth/me", async (req, res) => {
-  const token = req.headers.authorization?.replace("Bearer ", "");
-  if (!token) { res.status(401).json({ error: "غير مصرح" }); return; }
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.sessionToken, token));
-  if (!user) { res.status(401).json({ error: "جلسة منتهية" }); return; }
-  res.json(toPublicUser(user));
+  const rawToken = req.headers.authorization?.replace("Bearer ", "");
+  if (!rawToken) { res.status(401).json({ error: "غير مصرح" }); return; }
+  let user = getCachedUser(rawToken);
+  if (!user) {
+    const [found] = await db.select().from(usersTable).where(eq(usersTable.sessionToken, rawToken));
+    if (!found) { res.status(401).json({ error: "جلسة منتهية" }); return; }
+    setCachedUser(rawToken, found);
+    user = found;
+  }
+  res.json(await toPublicUser(user));
 });
 
 router.post("/auth/logout", async (req, res) => {
   const token = req.headers.authorization?.replace("Bearer ", "");
-  if (token) await db.update(usersTable).set({ sessionToken: null }).where(eq(usersTable.sessionToken, token));
+  if (token) {
+    await db.update(usersTable).set({ sessionToken: null }).where(eq(usersTable.sessionToken, token));
+    clearSessionCache(token);
+  }
   res.json({ ok: true });
 });
 
 router.get("/auth/search-quota", async (req, res) => {
-  const token = req.headers.authorization?.replace("Bearer ", "");
-  if (!token) { res.status(401).json({ error: "غير مصرح" }); return; }
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.sessionToken, token));
-  if (!user) { res.status(401).json({ error: "جلسة منتهية" }); return; }
+  const rawToken = req.headers.authorization?.replace("Bearer ", "");
+  if (!rawToken) { res.status(401).json({ error: "غير مصرح" }); return; }
+  let user = getCachedUser(rawToken);
+  if (!user) {
+    const [found] = await db.select().from(usersTable).where(eq(usersTable.sessionToken, rawToken));
+    if (!found) { res.status(401).json({ error: "جلسة منتهية" }); return; }
+    setCachedUser(rawToken, found);
+    user = found;
+  }
   const isActive = user.isSubscribed && user.subscriptionExpiry && user.subscriptionExpiry > new Date();
-  res.json({ used: user.searchCount, limit: FREE_SEARCH_LIMIT, unlimited: isActive ?? false, canSearch: isActive || user.searchCount < FREE_SEARCH_LIMIT });
+  const limit = await getFreeLimit();
+  res.json({ used: user.searchCount, limit, unlimited: isActive ?? false, canSearch: isActive || user.searchCount < limit });
 });
 
 router.post("/auth/subscribe", async (req, res) => {
@@ -140,7 +158,7 @@ router.post("/auth/subscribe", async (req, res) => {
   if (!user) { res.status(401).json({ error: "جلسة منتهية" }); return; }
   const expiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   const [updated] = await db.update(usersTable).set({ isSubscribed: true, subscribedAt: new Date(), subscriptionExpiry: expiry, updatedAt: new Date() }).where(eq(usersTable.id, user.id)).returning();
-  res.json({ ok: true, user: toPublicUser(updated) });
+  res.json({ ok: true, user: await toPublicUser(updated) });
 });
 
 async function upsertUser(data: { telegramId: string; firstName: string; lastName?: string; username?: string; photoUrl?: string; }) {
@@ -160,16 +178,16 @@ async function upsertUser(data: { telegramId: string; firstName: string; lastNam
   return created;
 }
 
-export function toPublicUser(user: typeof usersTable.$inferSelect) {
+export async function toPublicUser(user: typeof usersTable.$inferSelect) {
   const isActive = user.isSubscribed && user.subscriptionExpiry && user.subscriptionExpiry > new Date();
+  const limit = await getFreeLimit();
   return {
     id: user.id, telegramId: user.telegramId, firstName: user.firstName, lastName: user.lastName,
     username: user.username, photoUrl: user.photoUrl, searchCount: user.searchCount,
     isSubscribed: isActive ?? false, subscriptionExpiry: user.subscriptionExpiry?.toISOString() ?? null,
-    canSearch: isActive || user.searchCount < FREE_SEARCH_LIMIT,
-    searchesRemaining: isActive ? null : Math.max(0, FREE_SEARCH_LIMIT - user.searchCount),
+    canSearch: isActive || user.searchCount < limit,
+    searchesRemaining: isActive ? null : Math.max(0, limit - user.searchCount),
   };
 }
 
-export const FREE_LIMIT = FREE_SEARCH_LIMIT;
 export default router;

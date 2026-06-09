@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SUBSCRIPTION_PRICE_LABEL } from "@/lib/constants";
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string | null | undefined }) {
   if (!value) return null;
@@ -173,7 +174,7 @@ export default function AccountPage() {
 
                   <Button onClick={handleSubscribeClick} className="w-full h-11 font-bold gap-2">
                     <Zap className="w-4 h-4" />
-                    الاشتراك — 30 دينار ليبي / شهر
+                    الاشتراك — {SUBSCRIPTION_PRICE_LABEL}
                   </Button>
 
                   <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">

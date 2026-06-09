@@ -4,11 +4,45 @@ import { eq } from "drizzle-orm";
 import { toPublicUser } from "../routes/auth";
 import { getSystemConfigNumber } from "../services/settingsService";
 
+// ─── Session token cache ────────────────────────────────────────────────────
+const sessionCache = new Map<string, { user: typeof usersTable.$inferSelect; ttl: number }>();
+const SESSION_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCachedUser(token: string): typeof usersTable.$inferSelect | undefined {
+  const entry = sessionCache.get(token);
+  if (!entry || Date.now() > entry.ttl) {
+    sessionCache.delete(token);
+    return undefined;
+  }
+  return entry.user;
+}
+
+function setCachedUser(token: string, user: typeof usersTable.$inferSelect) {
+  if (sessionCache.size > 1000) sessionCache.clear();
+  sessionCache.set(token, { user, ttl: Date.now() + SESSION_CACHE_TTL });
+}
+
+export function clearSessionCache(token?: string) {
+  if (token) sessionCache.delete(token);
+  else sessionCache.clear();
+}
+
+export { getCachedUser, setCachedUser };
+
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const token = req.headers.authorization?.replace("Bearer ", "");
   if (!token) { res.status(401).json({ error: "غير مصرح — سجل دخولك أولاً" }); return; }
+
+  const cached = getCachedUser(token);
+  if (cached) {
+    (req as Request & { authUser: typeof usersTable.$inferSelect }).authUser = cached;
+    next();
+    return;
+  }
+
   const [user] = await db.select().from(usersTable).where(eq(usersTable.sessionToken, token));
   if (!user) { res.status(401).json({ error: "جلسة منتهية" }); return; }
+  setCachedUser(token, user);
   (req as Request & { authUser: typeof user }).authUser = user;
   next();
 }
@@ -32,7 +66,7 @@ export async function requireQuota(req: Request, res: Response, next: NextFuncti
       code: "QUOTA_EXCEEDED",
       searchCount: user.searchCount,
       limit: freeLimit,
-      user: toPublicUser(user),
+      user: await toPublicUser(user),
     });
     return;
   }

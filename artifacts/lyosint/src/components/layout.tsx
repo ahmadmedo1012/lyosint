@@ -4,6 +4,7 @@ import {
   SidebarMenuButton, SidebarProvider, SidebarTrigger, SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Terminal, Search, Globe, History, Palette, LogOut, Crown, User as UserIcon, ChevronDown } from "lucide-react";
+import { SUBSCRIPTION_PRICE_LABEL } from "@/lib/constants";
 import { useTheme, type Theme } from "@/contexts/theme";
 import { useAuth } from "@/contexts/auth";
 import { useEffect, useState } from "react";
@@ -125,7 +126,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         size="sm"
                         className="w-full h-7 text-[11px] font-medium gap-1.5"
                       >
-                        <Crown className="w-3 h-3" /> اشترك · 30 د.ل/شهر
+                        <Crown className="w-3 h-3" /> اشترك · {SUBSCRIPTION_PRICE_LABEL}
                       </Button>
                     )}
                   </div>

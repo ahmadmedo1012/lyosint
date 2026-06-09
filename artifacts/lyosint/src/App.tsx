@@ -2,6 +2,7 @@ import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ErrorBoundary } from "@/components/error-boundary";
 import NotFound from "@/pages/not-found";
 import { AppLayout } from "@/components/layout";
 import Dashboard from "@/pages/dashboard";
@@ -51,14 +52,16 @@ function AuthGate() {
 
   return (
     <AppLayout>
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/search/:id" component={SearchResultPage} />
-        <Route path="/platforms" component={PlatformsPage} />
-        <Route path="/history" component={HistoryPage} />
-        <Route path="/account" component={AccountPage} />
-        <Route component={NotFound} />
-      </Switch>
+      <ErrorBoundary key={location}>
+        <Switch>
+          <Route path="/" component={Dashboard} />
+          <Route path="/search/:id" component={SearchResultPage} />
+          <Route path="/platforms" component={PlatformsPage} />
+          <Route path="/history" component={HistoryPage} />
+          <Route path="/account" component={AccountPage} />
+          <Route component={NotFound} />
+        </Switch>
+      </ErrorBoundary>
     </AppLayout>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/auth";
 import { Terminal, ShieldAlert, Send, Loader2, CheckCircle2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SUBSCRIPTION_PRICE } from "@/lib/constants";
 
 declare global {
   interface Window {
@@ -173,7 +174,7 @@ export function LoginPage({ onSuccess }: { onSuccess?: () => void }) {
           {[
             { value: "75+", label: "منصة OSINT", color: "text-primary" },
             { value: "مجاني", label: "3 بحث أولاً", color: "text-green-400" },
-            { value: "30 د.ل", label: "اشتراك/شهر", color: "text-amber-400" },
+            { value: `${SUBSCRIPTION_PRICE} د.ل`, label: "اشتراك/شهر", color: "text-amber-400" },
           ].map(({ value, label, color }) => (
             <div key={label} className="bg-card border border-border/50 rounded-xl p-3 text-center">
               <div className={`text-lg font-black font-mono ${color}`}>{value}</div>

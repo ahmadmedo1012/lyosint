@@ -37,7 +37,7 @@ export default function PlatformsPage() {
       (p) =>
         p.name.toLowerCase().includes(lower) ||
         p.category.toLowerCase().includes(lower) ||
-        (p.libyaSpecific && "libya".includes(lower))
+        (p.libyaSpecific && (lower.includes("lib") || lower.includes("ليب")))
     );
   }, [platforms, search]);
 

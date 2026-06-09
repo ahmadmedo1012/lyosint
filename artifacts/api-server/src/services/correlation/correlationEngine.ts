@@ -1,5 +1,19 @@
 import type { PlatformResult } from "../httpChecker";
 import type { MaigretResult } from "../maigret";
+import type { GitHubProfile } from "../githubOsint";
+
+interface ProfileEntry {
+  exists: boolean;
+  displayName?: string | null;
+  bio?: string | null;
+  url?: string | null;
+  verified?: boolean | null;
+  profileData?: Record<string, unknown>;
+}
+
+interface TwitchProfile {
+  displayName?: string | null;
+}
 
 export type EvidenceType =
   | "username_exact"
@@ -100,11 +114,11 @@ const EVIDENCE_WEIGHTS = {
 
 export function buildIdentityResolutionReport(params: {
   username: string;
-  profilesFound: Record<string, any>;
+  profilesFound: Record<string, ProfileEntry>;
   mergedResults: PlatformResult[];
   maigret: MaigretResult | null;
-  twitch: any;
-  githubProfile: any;
+  twitch: TwitchProfile | null;
+  githubProfile: GitHubProfile | null;
   possibleEmail: string | null;
 }): IdentityResolutionReport {
   const observations = dedupeObservations(
@@ -140,11 +154,11 @@ export function buildIdentityResolutionReport(params: {
 
 function buildObservations(
   username: string,
-  profilesFound: Record<string, any>,
+  profilesFound: Record<string, ProfileEntry>,
   mergedResults: PlatformResult[],
   maigret: MaigretResult | null,
-  twitch: any,
-  githubProfile: any,
+  twitch: TwitchProfile | null,
+  githubProfile: GitHubProfile | null,
   possibleEmail: string | null,
 ): IdentityObservation[] {
   const bySlug = new Map(mergedResults.map((r) => [r.slug, r]));
@@ -193,7 +207,7 @@ function buildObservations(
       profileData.image,
       profileData.iconImg,
       m?.image,
-      platform === "github" ? githubProfile?.avatarUrl : null,
+      platform === "github" ? githubProfile?.avatar : null,
     ));
 
     observations.push({
