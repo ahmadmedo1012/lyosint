@@ -4,24 +4,37 @@ import { generateNameVariants, LIBYA_SOCIAL_PLATFORMS } from "./libyaHelpers";
 import { searchGitHubByName } from "./githubOsint";
 import { hunterEmailFinder } from "./freeApis";
 
+const STEP_MS = 150;
+
 export async function runNameSearch(id: string, name: string): Promise<void> {
   try {
     await db.update(searchesTable).set({ status: "running", progress: 5 }).where(eq(searchesTable.id, id));
 
     const variants = generateNameVariants(name);
-    const slug = name.trim().toLowerCase().replace(/\s+/g, ".").replace(/[^\w.]/g, "");
+    const slug = name.trim().toLowerCase()
+      .replace(/\s+/g, ".")
+      .replace(/[^\w.]/g, "");
     const slugDash = slug.replace(/\./g, "-");
     const slugUnder = slug.replace(/\./g, "_");
 
-    // Run GitHub + Hunter.io in parallel
-    const [githubUsers, discoveredEmails] = await Promise.all([
-      searchGitHubByName(name).catch(() => []),
-      hunterEmailFinder(name).catch(() => null),
-    ]);
+    await sleep(STEP_MS);
+    await db.update(searchesTable).set({ progress: 15 }).where(eq(searchesTable.id, id));
 
-    await db.update(searchesTable).set({ progress: 50 }).where(eq(searchesTable.id, id));
+    // ── Real GitHub name search ───────────────────────────────────────────────
+    const githubUsers = await searchGitHubByName(name).catch(() => []);
 
+    await sleep(STEP_MS);
+    await db.update(searchesTable).set({ progress: 30 }).where(eq(searchesTable.id, id));
+
+    // ── Hunter.io email search ─────────────────────────────────────────────────
+    const discoveredEmails = await hunterEmailFinder(name).catch(() => null);
+
+    await sleep(STEP_MS);
+    await db.update(searchesTable).set({ progress: 48 }).where(eq(searchesTable.id, id));
+
+    // ── Generate investigative search URLs ────────────────────────────────────
     const nameEncoded = encodeURIComponent(name);
+    const nameAr = name.trim();
 
     const searchEngineLinks = [
       { label: "Google — البحث الشامل", url: `https://www.google.com/search?q=${nameEncoded}+Libya` },
@@ -30,28 +43,50 @@ export async function runNameSearch(id: string, name: string): Promise<void> {
       { label: "DuckDuckGo", url: `https://duckduckgo.com/?q=${nameEncoded}+Libya` },
     ];
 
+    // ── Social media profile links (manual check) ─────────────────────────────
     const socialMedia: Record<string, string[]> = {
-      facebook: [`https://www.facebook.com/search/people?q=${nameEncoded}`, `https://facebook.com/${slug}`],
+      facebook: [
+        `https://www.facebook.com/search/people?q=${nameEncoded}`,
+        `https://facebook.com/${slug}`,
+      ],
       twitter: [`https://x.com/search?q=${nameEncoded}&f=user`],
       instagram: [`https://www.instagram.com/${slug}/`],
-      linkedin: [`https://www.linkedin.com/search/results/people/?keywords=${nameEncoded}`, `https://linkedin.com/in/${slugDash}`],
+      linkedin: [
+        `https://www.linkedin.com/search/results/people/?keywords=${nameEncoded}`,
+        `https://linkedin.com/in/${slugDash}`,
+      ],
       tiktok: [`https://www.tiktok.com/search/user?q=${nameEncoded}`],
       telegram: [`https://t.me/${slugUnder}`],
       youtube: [`https://www.youtube.com/results?search_query=${nameEncoded}`],
     };
 
+    await sleep(STEP_MS);
+    await db.update(searchesTable).set({ progress: 62 }).where(eq(searchesTable.id, id));
+
+    // ── Libyan-specific platforms ──────────────────────────────────────────────
     const libyanPlatforms = LIBYA_SOCIAL_PLATFORMS.map((p) => ({
       name: p.name,
       url: p.searchUrl.replace("{q}", nameEncoded),
     }));
 
+    await sleep(STEP_MS);
+    await db.update(searchesTable).set({ progress: 78 }).where(eq(searchesTable.id, id));
+
+    // ── Username variants for further OSINT ───────────────────────────────────
     const usernameVariants = [
       slug, slugDash, slugUnder,
-      ...variants.map((v) => v.toLowerCase().replace(/\s+/g, ".").replace(/[^\w.]/g, "")),
+      ...variants.map((v) =>
+        v.toLowerCase().replace(/\s+/g, ".").replace(/[^\w.]/g, "")
+      ),
     ].filter((v, i, arr) => v && arr.indexOf(v) === i).slice(0, 8);
 
+    await sleep(STEP_MS);
+    await db.update(searchesTable).set({ progress: 90 }).where(eq(searchesTable.id, id));
+
+    // ── Confidence ────────────────────────────────────────────────────────────
     const confidence = Math.round(Math.min(
-      0.25 + githubUsers.length * 0.12 + (discoveredEmails?.length ?? 0) * 0.1, 0.82,
+      0.25 + githubUsers.length * 0.12 + (discoveredEmails?.length ?? 0) * 0.1,
+      0.82,
     ) * 100) / 100;
 
     const socialCount = Object.values(socialMedia).flat().length;
@@ -61,12 +96,19 @@ export async function runNameSearch(id: string, name: string): Promise<void> {
       fullName: name,
       possibleVariations: variants,
       usernameVariants,
+      // Real results
       githubUsers,
       discoveredEmails: discoveredEmails ?? [],
+      // Search links
       searchEngineLinks,
       socialMedia,
       libyanPlatforms,
-      sources: ["github.com/search", ...(discoveredEmails ? ["hunter.io"] : []), "google.com", "facebook.com", "linkedin.com"],
+      // Meta
+      sources: [
+        "github.com/search",
+        ...(discoveredEmails ? ["hunter.io"] : []),
+        "google.com", "facebook.com", "linkedin.com",
+      ],
       dataNote: "روابط وسائل التواصل للفحص اليدوي — نتائج GitHub مؤكدة من API",
     };
 
@@ -79,4 +121,8 @@ export async function runNameSearch(id: string, name: string): Promise<void> {
   } catch {
     await db.update(searchesTable).set({ status: "failed" }).where(eq(searchesTable.id, id));
   }
+}
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
 }

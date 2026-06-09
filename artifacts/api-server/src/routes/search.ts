@@ -3,8 +3,13 @@ import { randomUUID } from "crypto";
 import { db, searchesTable, usersTable, type Search } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import {
-  SearchByNameBody, SearchByPhoneBody, SearchByUsernameBody, DeepSearchBody,
-  GetSearchResultParams, GetSearchStatusParams, ListRecentSearchesQueryParams,
+  SearchByNameBody,
+  SearchByPhoneBody,
+  SearchByUsernameBody,
+  DeepSearchBody,
+  GetSearchResultParams,
+  GetSearchStatusParams,
+  ListRecentSearchesQueryParams,
 } from "@workspace/api-zod";
 import { runNameSearch } from "../services/nameSearch";
 import { runPhoneSearch } from "../services/phoneSearch";
@@ -13,6 +18,7 @@ import { requireAuth, requireQuota } from "../middleware/requireAuth";
 import { logger } from "../lib/logger";
 
 const router = Router();
+const FREE_LIMIT = 3;
 
 async function getUserFromToken(token: string | undefined) {
   if (!token) return null;
@@ -31,7 +37,7 @@ async function incrementCount(userId: string) {
 function checkCanSearch(user: typeof usersTable.$inferSelect | null): boolean {
   if (!user) return false;
   const isActive = user.isSubscribed && user.subscriptionExpiry && user.subscriptionExpiry > new Date();
-  return !!(isActive || user.searchCount < 3);
+  return !!(isActive || user.searchCount < FREE_LIMIT);
 }
 
 router.post("/search/name", requireAuth, requireQuota, async (req, res) => {
@@ -78,33 +84,17 @@ router.post("/search/deep", requireAuth, requireQuota, async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid request body" }); return; }
   const user = (req as typeof req & { authUser: typeof usersTable.$inferSelect }).authUser;
   const { name, phone, username } = parsed.data;
-  const parts = [name, phone, username].filter(Boolean);
-  const query = parts.join(" | ");
+  const query = [name, phone, username].filter(Boolean).join(" | ");
   const id = randomUUID();
-
-  await db.insert(searchesTable).values({
-    id, type: "deep", query: query || "deep search",
-    status: "pending", progress: 0, platformsTotal: parts.length * 100, platformsSearched: 0,
-  });
-
+  await db.insert(searchesTable).values({ id, type: "deep", query: query || "deep search", status: "pending", progress: 0, platformsTotal: 455, platformsSearched: 0 });
   await incrementCount(user.id);
-
-  // Run searches in parallel, each updates its own column in the row
-  const tasks: Promise<void>[] = [];
-  if (name) tasks.push(runNameSearch(id, name));
-  if (phone) tasks.push(runPhoneSearch(id, phone));
-  if (username) tasks.push(runUsernameSearch(id, username));
-
-  Promise.allSettled(tasks).then(async () => {
-    const [row] = await db.select().from(searchesTable).where(eq(searchesTable.id, id));
-    if (row && row.status !== "completed") {
-      const maxProgress = Math.min(100, (row.progress ?? 0) + 10);
-      await db.update(searchesTable).set({
-        status: "completed", progress: 100, completedAt: new Date(),
-      }).where(eq(searchesTable.id, id));
-    }
-  }).catch(() => {});
-
+  Promise.all([
+    name ? runNameSearch(id, name) : Promise.resolve(),
+    phone ? runPhoneSearch(id, phone) : Promise.resolve(),
+    username ? runUsernameSearch(id, username) : Promise.resolve(),
+  ])
+    .then(() => db.update(searchesTable).set({ status: "completed", progress: 100, completedAt: new Date() }).where(eq(searchesTable.id, id)))
+    .catch(() => {});
   const [task] = await db.select().from(searchesTable).where(eq(searchesTable.id, id));
   res.status(202).json(toSearchTask(task));
 });
@@ -140,21 +130,11 @@ router.get("/searches/recent", async (req, res) => {
 });
 
 function toSearchTask(row: typeof searchesTable.$inferSelect) {
-  return {
-    id: row.id, status: row.status, type: row.type, query: row.query,
-    progress: row.progress ?? null, platformsSearched: row.platformsSearched ?? null,
-    platformsTotal: row.platformsTotal ?? null, createdAt: row.createdAt.toISOString(),
-    completedAt: row.completedAt?.toISOString() ?? null,
-  };
+  return { id: row.id, status: row.status, type: row.type, query: row.query, progress: row.progress ?? null, platformsSearched: row.platformsSearched ?? null, platformsTotal: row.platformsTotal ?? null, createdAt: row.createdAt.toISOString(), completedAt: row.completedAt?.toISOString() ?? null };
 }
 
 function toSearchResult(row: typeof searchesTable.$inferSelect) {
-  return {
-    id: row.id, type: row.type, query: row.query, status: row.status,
-    createdAt: row.createdAt.toISOString(), completedAt: row.completedAt?.toISOString() ?? null,
-    nameResult: row.nameResult ?? null, phoneResult: row.phoneResult ?? null,
-    usernameResult: row.usernameResult ?? null, confidenceScore: row.confidenceScore ?? null,
-  };
+  return { id: row.id, type: row.type, query: row.query, status: row.status, createdAt: row.createdAt.toISOString(), completedAt: row.completedAt?.toISOString() ?? null, nameResult: row.nameResult ?? null, phoneResult: row.phoneResult ?? null, usernameResult: row.usernameResult ?? null, confidenceScore: row.confidenceScore ?? null };
 }
 
 export default router;
