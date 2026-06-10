@@ -1,4 +1,4 @@
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useGetSearchStatus, getGetSearchStatusQueryKey, useGetSearchResult, getGetSearchResultQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -9,9 +9,10 @@ import { IdentityReport } from "@/components/search/identity-report";
 import {
   User, Phone, AtSign, CheckCircle2, AlertTriangle, XCircle,
   Loader2, ExternalLink, Github, Network, Shield, Wifi,
-  Key, Database, Link as LinkIcon, Copy, Globe, Search
+  Key, Database, Link as LinkIcon, Copy, Globe, Search, ChevronRight
 } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 const TYPE_LABELS: Record<string, string> = {
   name: "اسم", phone: "هاتف", username: "معرّف", deep: "شامل",
@@ -158,6 +159,7 @@ function SkeletonCard() {
 
 export default function SearchResultPage() {
   const { id } = useParams();
+  const [, navigate] = useLocation();
 
   const { data: statusData } = useGetSearchStatus(id!, {
     query: {
@@ -193,6 +195,7 @@ export default function SearchResultPage() {
   const phoneResult = resultData?.phoneResult as PhoneResult | undefined;
   const usernameResult = resultData?.usernameResult as UsernameResult | undefined;
   const confidenceScore = resultData?.confidenceScore as number | undefined;
+  const entityId = (resultData as Record<string, unknown> | undefined)?.entityId as string | undefined;
 
   return (
     <PageTransition>
@@ -225,6 +228,23 @@ export default function SearchResultPage() {
             </div>
           </div>
         </div>
+
+        {/* Entity Intelligence Banner */}
+        {isCompleted && entityId && (
+          <div
+            onClick={() => navigate(`/entities/${entityId}`)}
+            className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 cursor-pointer hover:bg-primary/10 transition-all group"
+          >
+            <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+              <User className="w-4 h-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-primary">الكيان الاستخباراتي مُنشأ</div>
+              <div className="text-xs text-muted-foreground">انقر لعرض ملف الهوية الكامل — الأدلة، الجدول الزمني، والتقرير</div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+          </div>
+        )}
 
         {/* Running State */}
         {isRunning && (

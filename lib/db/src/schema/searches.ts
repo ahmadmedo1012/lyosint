@@ -18,6 +18,7 @@ export const searchesTable = pgTable("searches", {
   nameResult: jsonb("name_result"),
   phoneResult: jsonb("phone_result"),
   usernameResult: jsonb("username_result"),
+  entityId: text("entity_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   completedAt: timestamp("completed_at"),
 });

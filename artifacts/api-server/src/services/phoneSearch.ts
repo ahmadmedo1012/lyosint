@@ -1,5 +1,7 @@
 import { db, searchesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { resolveEntityFromPhoneSearch } from "./intelligence/entity-resolver";
+import { logger } from "../lib/logger";
 import { libyaCarrierFromPhone, libyaRegionFromPhone, normalizeLibyaPhone } from "./libyaHelpers";
 import { validatePhone } from "./freeApis";
 import { getPhoneMeta, getCountryName, type PhoneMeta } from "./phoneHelpers";
@@ -102,6 +104,17 @@ export async function runPhoneSearch(id: string, rawPhone: string): Promise<void
       confidenceScore: confidence,
       resultsCount, completedAt: new Date(),
     }).where(eq(searchesTable.id, id));
+
+    // ── Entity Resolution (non-blocking) ────────────────────────────────────
+    resolveEntityFromPhoneSearch(phone, {
+      valid, carrier: carrier ?? null, country: phoneMeta.country ?? null,
+      e164: phoneMeta.e164 ?? phone, lineType: lineType ?? null,
+    })
+      .then(({ entityId, isNew, confidenceScore: cs }) => {
+        db.update(searchesTable).set({ entityId }).where(eq(searchesTable.id, id)).catch(() => {});
+        logger.info({ entityId, isNew, phone, confidenceScore: cs }, "entity resolved after phone search");
+      })
+      .catch((err) => logger.error(err, "entity resolution failed (phone search)"));
   } catch {
     await db.update(searchesTable).set({ status: "failed" }).where(eq(searchesTable.id, id));
   }

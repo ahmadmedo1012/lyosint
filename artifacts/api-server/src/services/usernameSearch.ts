@@ -1,5 +1,7 @@
 import { db, searchesTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
+import { resolveEntityFromUsernameSearch } from "./intelligence/entity-resolver";
+import { logger } from "../lib/logger";
 import { checkUsername, type PlatformResult } from "./httpChecker";
 import { getGitHubProfile } from "./githubOsint";
 import { checkHIBP, lookupTwitchUser, checkLeakCheck, checkEmailRep, crtShLookup } from "./freeApis";
@@ -189,6 +191,14 @@ async function doRun(id: string, username: string): Promise<void> {
       usernameResult, confidenceScore: confidence,
       resultsCount: totalFound, completedAt: new Date(),
     }).where(eq(searchesTable.id, id));
+
+    // ── Entity Resolution (non-blocking) ────────────────────────────────────
+    resolveEntityFromUsernameSearch(username, usernameResult as unknown as Record<string, unknown>)
+      .then(({ entityId, isNew, confidenceScore: cs }) => {
+        db.update(searchesTable).set({ entityId }).where(eq(searchesTable.id, id)).catch(() => {});
+        logger.info({ entityId, isNew, username, confidenceScore: cs }, "entity resolved after username search");
+      })
+      .catch((err) => logger.error(err, "entity resolution failed (username search)"));
   } catch (err) {
     await db.update(searchesTable).set({ status: "failed" }).where(eq(searchesTable.id, id));
   }

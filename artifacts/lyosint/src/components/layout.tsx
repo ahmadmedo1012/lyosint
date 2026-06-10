@@ -3,7 +3,7 @@ import {
   Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem,
   SidebarMenuButton, SidebarProvider, SidebarTrigger, SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Terminal, Search, Globe, History, Palette, LogOut, Crown, User as UserIcon, ChevronDown } from "lucide-react";
+import { Terminal, Search, Globe, History, Palette, LogOut, Crown, User as UserIcon, ChevronDown, Database } from "lucide-react";
 import { SUBSCRIPTION_PRICE_LABEL } from "@/lib/constants";
 import { useTheme, type Theme } from "@/contexts/theme";
 import { useAuth } from "@/contexts/auth";
@@ -14,6 +14,7 @@ import { PaywallModal } from "@/components/paywall-modal";
 
 const NAV_ITEMS = [
   { href: "/",          icon: Search,    label: "البحث الاستخباراتي" },
+  { href: "/entities",  icon: Database,  label: "قاعدة الكيانات" },
   { href: "/history",   icon: History,   label: "السجلات" },
   { href: "/platforms", icon: Globe,     label: "المنصات المدعومة" },
   { href: "/account",   icon: UserIcon,  label: "حسابي" },

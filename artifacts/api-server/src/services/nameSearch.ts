@@ -1,5 +1,7 @@
 import { db, searchesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { resolveEntityFromNameSearch } from "./intelligence/entity-resolver";
+import { logger } from "../lib/logger";
 import { generateNameVariants, LIBYA_SOCIAL_PLATFORMS } from "./libyaHelpers";
 import { searchGitHubByName } from "./githubOsint";
 import { hunterEmailFinder } from "./freeApis";
@@ -89,6 +91,14 @@ export async function runNameSearch(id: string, name: string): Promise<void> {
       confidenceScore: confidence,
       resultsCount, completedAt: new Date(),
     }).where(eq(searchesTable.id, id));
+
+    // ── Entity Resolution (non-blocking) ────────────────────────────────────
+    resolveEntityFromNameSearch(name, { records: githubUsers, discoveredEmails: discoveredEmails ?? [] })
+      .then(({ entityId, isNew, confidenceScore: cs }) => {
+        db.update(searchesTable).set({ entityId }).where(eq(searchesTable.id, id)).catch(() => {});
+        logger.info({ entityId, isNew, name, confidenceScore: cs }, "entity resolved after name search");
+      })
+      .catch((err) => logger.error(err, "entity resolution failed (name search)"));
   } catch {
     await db.update(searchesTable).set({ status: "failed" }).where(eq(searchesTable.id, id));
   }

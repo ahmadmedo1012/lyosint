@@ -11,6 +11,8 @@ import PlatformsPage from "@/pages/platforms";
 import HistoryPage from "@/pages/history";
 import AccountPage from "@/pages/account";
 import AdminPage from "@/pages/admin";
+import EntitiesPage from "@/pages/entities";
+import EntityPage from "@/pages/entity";
 import { ThemeProvider } from "@/contexts/theme";
 import { AuthProvider, useAuth } from "@/contexts/auth";
 import { LoginPage } from "@/components/telegram-login";
@@ -59,6 +61,8 @@ function AuthGate() {
           <Route path="/platforms" component={PlatformsPage} />
           <Route path="/history" component={HistoryPage} />
           <Route path="/account" component={AccountPage} />
+          <Route path="/entities" component={EntitiesPage} />
+          <Route path="/entities/:id" component={EntityPage} />
           <Route component={NotFound} />
         </Switch>
       </ErrorBoundary>
