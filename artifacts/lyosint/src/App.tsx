@@ -27,7 +27,7 @@ function AuthGate() {
 
   // Admin panel is completely independent — no user auth needed
   if (location === "/admin" || location.startsWith("/admin/")) {
-    return <AdminPage />;
+    return <ErrorBoundary><AdminPage /></ErrorBoundary>;
   }
 
   if (loading) {

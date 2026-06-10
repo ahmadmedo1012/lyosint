@@ -178,6 +178,11 @@ let backgroundInstallStarted = false;
 export function startBackgroundInstall(): void {
   if (backgroundInstallStarted || !isRunnerPresent()) return;
   backgroundInstallStarted = true;
+  // Skip if pre-installed (Docker image)
+  if (process.env.MAIGRET_PREINSTALLED === "true") {
+    console.log("[maigret] pre-installed (Docker) — skipping background install");
+    return;
+  }
   const python = getPythonPath();
   // Fire-and-forget
   ensureMaigretInstalled(python).then((ok) => {

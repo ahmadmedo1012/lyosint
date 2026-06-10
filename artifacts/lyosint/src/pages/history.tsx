@@ -13,7 +13,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default function HistoryPage() {
   const [, setLocation] = useLocation();
-  const { data: history, isLoading } = useListRecentSearches({ limit: 50 });
+  const { data: history, isLoading, isError, refetch } = useListRecentSearches({ limit: 50 });
 
   return (
     <div className="space-y-8 page-transition" dir="rtl">
@@ -37,7 +37,15 @@ export default function HistoryPage() {
         </div>
 
         <div className="divide-y divide-border/40">
-          {isLoading
+          {isError ? (
+            <div className="p-14 text-center text-sm space-y-3">
+              <AlertCircle className="w-8 h-8 mx-auto text-destructive" />
+              <p className="text-destructive font-medium">فشل تحميل سجل العمليات</p>
+              <button onClick={() => refetch()} className="text-primary hover:underline text-xs">
+                إعادة المحاولة
+              </button>
+            </div>
+          ) : isLoading
             ? Array(8).fill(0).map((_, i) => (
                 <div key={i} className="px-4 py-3">
                   <Skeleton className="h-5 w-full bg-secondary/30" />

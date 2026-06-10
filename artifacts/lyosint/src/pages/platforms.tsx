@@ -26,7 +26,7 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 const CATEGORY_ORDER = ["libyan", "social", "messaging", "professional", "code", "other"];
 
 export default function PlatformsPage() {
-  const { data: platforms, isLoading } = useGetPlatformCoverage();
+  const { data: platforms, isLoading, isError, refetch } = useGetPlatformCoverage();
   const [search, setSearch] = useState("");
 
   const filteredPlatforms = useMemo(() => {
@@ -89,7 +89,15 @@ export default function PlatformsPage() {
         />
       </div>
 
-      {isLoading ? (
+      {isError ? (
+        <div className="text-center py-16 space-y-3">
+          <Globe className="w-10 h-10 mx-auto text-destructive/60" />
+          <p className="text-destructive font-medium">فشل تحميل بيانات المنصات</p>
+          <button onClick={() => refetch()} className="text-primary hover:underline text-xs">
+            إعادة المحاولة
+          </button>
+        </div>
+      ) : isLoading ? (
         <div className="space-y-6 sm:space-y-8">
           {[1, 2].map((i) => (
             <div key={i} className="space-y-3 sm:space-y-4">

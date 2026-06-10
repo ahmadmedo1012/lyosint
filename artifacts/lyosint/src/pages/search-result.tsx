@@ -166,7 +166,7 @@ export default function SearchResultPage() {
       refetchInterval: (query) => {
         const d = query.state.data as { status?: string } | undefined;
         if (d?.status === "completed" || d?.status === "failed") return false;
-        return 1000;
+        return 500;
       },
     },
   });

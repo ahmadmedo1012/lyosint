@@ -16,18 +16,22 @@ export function PaywallModal({ open, onClose }: PaywallModalProps) {
   const { token, refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubscribe = async () => {
     setLoading(true);
+    setError(null);
     try {
-      await fetch(`${BASE}/api/auth/subscribe`, {
+      const res = await fetch(`${BASE}/api/auth/subscribe`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
+      if (!res.ok) { setError("فشلت عملية الاشتراك — حاول مرة أخرى"); setLoading(false); return; }
       await refreshUser();
       setDone(true);
       setTimeout(() => { setDone(false); onClose(); }, 1800);
     } catch (err) {
+      setError("حدث خطأ في الاتصال — تحقق من اتصالك بالإنترنت");
       console.error("subscribe failed", err);
     } finally {
       setLoading(false);
@@ -86,6 +90,11 @@ export function PaywallModal({ open, onClose }: PaywallModalProps) {
             </div>
           ) : (
             <div className="space-y-2.5">
+              {error && (
+                <div className="text-destructive text-xs text-center bg-destructive/10 rounded-lg px-3 py-2 border border-destructive/20">
+                  {error}
+                </div>
+              )}
               <Button
                 onClick={handleSubscribe}
                 disabled={loading}

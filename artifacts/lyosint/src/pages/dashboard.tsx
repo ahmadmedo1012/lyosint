@@ -17,7 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/auth";
 import { PaywallModal } from "@/components/paywall-modal";
 import {
-  User, Phone, AtSign, Zap, Activity, Clock, ShieldAlert,
+  User, Phone, AtSign, Zap, Activity, Clock, ShieldAlert, AlertCircle,
   Crown, Lock, Search, ChevronLeft, TrendingUp, Globe,
   Loader2, Layers
 } from "lucide-react";
@@ -54,8 +54,8 @@ export default function Dashboard() {
   const searchesRemaining = user?.isSubscribed ? null : (user ? Math.max(0, 3 - user.searchCount) : 0);
   const isAnyLoading = searchByName.isPending || searchByPhone.isPending || searchByUsername.isPending || deepSearch.isPending;
 
-  const { data: stats, isLoading: statsLoading } = useGetStats();
-  const { data: recent, isLoading: recentLoading } = useListRecentSearches({ limit: 8 });
+  const { data: stats, isLoading: statsLoading, isError: statsError, refetch: refetchStats } = useGetStats();
+  const { data: recent, isLoading: recentLoading, isError: recentError, refetch: refetchRecent } = useListRecentSearches({ limit: 8 });
 
   const handleSuccess = async (data: { id: string }) => {
     incrementSearch();
@@ -220,7 +220,15 @@ export default function Dashboard() {
             </div>
 
             <div className="space-y-1.5">
-              {recentLoading ? (
+              {recentError ? (
+                <div className="text-center py-8 text-destructive border border-dashed border-border/40 rounded-xl text-sm space-y-2">
+                  <AlertCircle className="w-8 h-8 mx-auto text-destructive" />
+                  <p className="font-medium">فشل تحميل آخر العمليات</p>
+                  <button onClick={() => refetchRecent()} className="text-primary hover:underline text-xs">
+                    إعادة المحاولة
+                  </button>
+                </div>
+              ) : recentLoading ? (
                 Array(4).fill(0).map((_, i) => (
                   <Skeleton key={i} className="h-13 rounded-xl" style={{ animationDelay: `${i * 80}ms` }} />
                 ))
@@ -263,7 +271,15 @@ export default function Dashboard() {
             <Activity className="w-3.5 h-3.5" /> إحصائيات النظام
           </h2>
 
-          {statsLoading ? (
+          {statsError ? (
+            <div className="text-center py-8 text-destructive border border-dashed border-border/40 rounded-xl text-sm space-y-2">
+              <AlertCircle className="w-6 h-6 mx-auto text-destructive" />
+              <p className="font-medium">فشل تحميل الإحصائيات</p>
+              <button onClick={() => refetchStats()} className="text-primary hover:underline text-xs">
+                إعادة المحاولة
+              </button>
+            </div>
+          ) : statsLoading ? (
             <div className="grid grid-cols-2 xl:grid-cols-1 gap-2.5">
               {Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
             </div>

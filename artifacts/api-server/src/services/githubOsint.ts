@@ -22,7 +22,10 @@ async function ghFetch(path: string, token?: string): Promise<unknown> {
     const res = await fetch(`https://api.github.com${path}`, { headers, signal: controller.signal });
     clearTimeout(timeout);
     if (!res.ok) return null;
-    return res.json();
+    return Promise.race([
+      res.json(),
+      new Promise<null>((_, reject) => setTimeout(() => reject(new Error("Body read timeout")), 3000)),
+    ]);
   } catch {
     clearTimeout(timeout);
     return null;

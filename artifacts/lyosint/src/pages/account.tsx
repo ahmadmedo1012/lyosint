@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SUBSCRIPTION_PRICE_LABEL } from "@/lib/constants";
 
@@ -30,7 +31,13 @@ export default function AccountPage() {
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
 
-  if (!user) return null;
+  if (!user) return (
+    <div className="space-y-6 page-transition" dir="rtl">
+      <Skeleton className="h-8 w-48 rounded-lg" />
+      <Skeleton className="h-64 rounded-xl" />
+      <Skeleton className="h-32 rounded-xl" />
+    </div>
+  );
 
   const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
   const isSubscribed = user.isSubscribed;

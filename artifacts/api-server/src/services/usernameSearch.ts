@@ -1,5 +1,5 @@
 import { db, searchesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { checkUsername, type PlatformResult } from "./httpChecker";
 import { getGitHubProfile } from "./githubOsint";
 import { checkHIBP, lookupTwitchUser, checkLeakCheck, checkEmailRep, crtShLookup } from "./freeApis";
@@ -11,7 +11,41 @@ import { buildIdentityResolutionReport } from "./correlation/correlationEngine";
 // Start background install of maigret on module load
 startBackgroundInstall();
 
+// ─── Request dedup ────────────────────────────────────────────────────────────
+const inflightSearches = new Map<string, { promise: Promise<void>; timestamp: number; id: string }>();
+const DEDUP_WINDOW_MS = 5_000;
+
+function dedupUsernameSearch(newId: string, username: string): Promise<void> | null {
+  const key = username.toLowerCase();
+  const existing = inflightSearches.get(key);
+  if (existing && Date.now() - existing.timestamp < DEDUP_WINDOW_MS) {
+    return existing.promise.then(async () => {
+      const [source] = await db.select().from(searchesTable).where(eq(searchesTable.id, existing.id));
+      if (source?.status === "completed") {
+        await db.update(searchesTable).set({
+          status: source.status, progress: source.progress,
+          platformsSearched: source.platformsSearched,
+          usernameResult: source.usernameResult as any,
+          confidenceScore: source.confidenceScore,
+          resultsCount: source.resultsCount, completedAt: source.completedAt,
+        }).where(eq(searchesTable.id, newId));
+      }
+    });
+  }
+  return null;
+}
+
 export async function runUsernameSearch(id: string, username: string): Promise<void> {
+  const deduped = dedupUsernameSearch(id, username);
+  if (deduped) return deduped;
+
+  const dedupKey = username.toLowerCase();
+  const searchPromise = (async () => { try { await doRun(id, username); } finally { inflightSearches.delete(dedupKey); } })();
+  inflightSearches.set(dedupKey, { promise: searchPromise, timestamp: Date.now(), id });
+  return searchPromise;
+}
+
+async function doRun(id: string, username: string): Promise<void> {
   try {
     await db.update(searchesTable).set({ status: "running", progress: 5 }).where(eq(searchesTable.id, id));
 
@@ -27,19 +61,25 @@ export async function runUsernameSearch(id: string, username: string): Promise<v
       "About.me", "Wattpad", "Quora",
     ];
 
-    const [platformResults, twitchData, socialWmnRaw, maigretResult] = await Promise.allSettled([
-      checkUsername(username),
-      lookupTwitchUser(username),
-      checkWhatsMyName(username, {
-        concurrency: 40,
-        perSiteTimeoutMs: 4000,
-        globalTimeoutMs: 8000,
-        siteNames: SOCIAL_WMN_SITES,
-      }),
-      isMaigretAvailable()
-        ? runMaigret(username, { timeoutMs: 4000, maxConnections: 40, maxSites: 50 })
-        : Promise.resolve({ username, found: [], totalFound: 0, elapsedSeconds: 0 }),
+    const phase1Result = await Promise.race([
+      Promise.allSettled([
+        checkUsername(username),
+        lookupTwitchUser(username),
+        checkWhatsMyName(username, {
+          concurrency: 40,
+          perSiteTimeoutMs: 4000,
+          globalTimeoutMs: 8000,
+          siteNames: SOCIAL_WMN_SITES,
+        }),
+        isMaigretAvailable()
+          ? runMaigret(username, { timeoutMs: 4000, maxConnections: 40, maxSites: 50 })
+          : Promise.resolve({ username, found: [], totalFound: 0, elapsedSeconds: 0 }),
+      ]),
+      new Promise<PromiseSettledResult<unknown>[]>((_, reject) =>
+        setTimeout(() => reject(new Error("Phase 1 global timeout")), 15000),
+      ),
     ]);
+    const [platformResults, twitchData, socialWmnRaw, maigretResult] = phase1Result as PromiseSettledResult<any>[];
 
     const results: PlatformResult[] = platformResults.status === "fulfilled" ? platformResults.value : [];
     const twitch = twitchData.status === "fulfilled" ? twitchData.value : null;
@@ -74,19 +114,20 @@ export async function runUsernameSearch(id: string, username: string): Promise<v
       resultsCount: phase1totalFound,
     }).where(eq(searchesTable.id, id));
 
-    const remainingWmnRaw: WMNResult[] = await checkWhatsMyName(username, {
-      concurrency: 20,
-      perSiteTimeoutMs: 5000,
-      globalTimeoutMs: 45000,
-    });
+    const [remainingWmnRaw, maigretPhase2] = await Promise.all([
+      checkWhatsMyName(username, {
+        concurrency: 20,
+        perSiteTimeoutMs: 5000,
+        globalTimeoutMs: 45000,
+      }),
+      isMaigretAvailable()
+        ? runMaigret(username, { timeoutMs: 8000, maxConnections: 30, maxSites: 500 }).catch(() => null)
+        : Promise.resolve(null),
+    ]);
     const SOCIAL_SLUGS = new Set(SOCIAL_WMN_SITES.map((n) => n.toLowerCase()));
     const remainingWmn: WMNResult[] = remainingWmnRaw.filter(
       (w) => !SOCIAL_SLUGS.has(w.siteName.toLowerCase()),
     );
-
-    const maigretPhase2 = isMaigretAvailable()
-      ? await runMaigret(username, { timeoutMs: 8000, maxConnections: 30, maxSites: 500 }).catch(() => null)
-      : null;
 
     const seenSlugs2 = new Set(phase1merged.map((r) => r.slug));
     const wmnPlatformResults2: PlatformResult[] = remainingWmn
@@ -109,15 +150,13 @@ export async function runUsernameSearch(id: string, username: string): Promise<v
       }
     }
 
-    await db.update(searchesTable).set({ progress: 55, platformsSearched: finalMerged.length }).where(eq(searchesTable.id, id));
-
-    // Enrich GitHub
+    // Enrich GitHub — combined with progress update from previous step
     let githubProfile = null;
     const ghResult = finalMerged.find((r) => r.slug === "github" && r.status === "found");
     if (ghResult) {
       githubProfile = await getGitHubProfile(username).catch(() => null);
     }
-    await db.update(searchesTable).set({ progress: 68 }).where(eq(searchesTable.id, id));
+    await db.update(searchesTable).set({ progress: 68, platformsSearched: finalMerged.length }).where(eq(searchesTable.id, id));
 
     // Breach & reputation
     const possibleEmail = githubProfile?.email ?? null;

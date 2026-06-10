@@ -170,32 +170,33 @@ export const SYSTEM_CONFIG_DEFS = [
 // ─── All defined settings (union) ────────────────────────────────────────────
 export const DEFINED_SERVICES = API_KEY_SERVICES;
 
-// ─── In-memory cache ──────────────────────────────────────────────────────────
-const cache = new Map<string, string>();
-let lastRefresh = 0;
+// ─── Per-key cache ────────────────────────────────────────────────────────────
+const cache = new Map<string, { value: string; expiresAt: number }>();
 const CACHE_TTL = 30_000; // 30 seconds
 
-async function refreshIfStale() {
-  if (Date.now() - lastRefresh < CACHE_TTL) return;
+async function getSettingFromDb(key: string): Promise<string | null> {
   try {
-    const rows = await db.select().from(settingsTable);
-    cache.clear();
-    for (const row of rows) {
-      if (row.value != null) cache.set(row.key, row.value);
-    }
-    lastRefresh = Date.now();
+    const [row] = await db.select().from(settingsTable).where(eq(settingsTable.key, key));
+    return row?.value ?? null;
   } catch {
-    lastRefresh = Date.now();
+    return null;
   }
 }
 
-export function invalidateCache() {
-  lastRefresh = 0;
+export function invalidateCache(key?: string) {
+  if (key) {
+    cache.delete(key);
+  } else {
+    cache.clear();
+  }
 }
 
 export async function getSetting(key: string): Promise<string | null> {
-  await refreshIfStale();
-  return cache.get(key) ?? null;
+  const cached = cache.get(key);
+  if (cached && Date.now() < cached.expiresAt) return cached.value;
+  const val = await getSettingFromDb(key);
+  cache.set(key, { value: val ?? "", expiresAt: Date.now() + CACHE_TTL });
+  return val;
 }
 
 export async function getSystemConfig(key: string): Promise<string | null> {

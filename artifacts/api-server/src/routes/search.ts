@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { randomUUID } from "crypto";
 import { db, searchesTable, usersTable, type Search } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import {
   SearchByNameBody,
   SearchByPhoneBody,
@@ -19,24 +19,17 @@ import { logger } from "../lib/logger";
 
 const router = Router();
 
-async function incrementCount(userId: string) {
-  const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
-  if (u) {
-    await db.update(usersTable).set({ searchCount: u.searchCount + 1, updatedAt: new Date() }).where(eq(usersTable.id, userId));
-  }
-}
-
 router.post("/search/name", requireAuth, requireQuota, async (req, res) => {
   const parsed = SearchByNameBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid request body" }); return; }
   const user = (req as typeof req & { authUser: typeof usersTable.$inferSelect }).authUser;
   const { name } = parsed.data;
   const id = randomUUID();
-  await db.insert(searchesTable).values({ id, type: "name", query: name, status: "pending", progress: 0, platformsTotal: 40, platformsSearched: 0 });
-  await incrementCount(user.id);
+  const now = new Date();
+  await db.insert(searchesTable).values({ id, type: "name", query: name, status: "pending", progress: 0, platformsTotal: 40, platformsSearched: 0, createdAt: now });
+  await db.update(usersTable).set({ searchCount: sql`search_count + 1`, updatedAt: now }).where(eq(usersTable.id, user.id));
   runNameSearch(id, name).catch((err) => { logger.error(err, "name search failed"); });
-  const [task] = await db.select().from(searchesTable).where(eq(searchesTable.id, id));
-  res.status(202).json(toSearchTask(task));
+  res.status(202).json({ id, status: "pending", type: "name", query: name, progress: 0, platformsSearched: 0, platformsTotal: 40, createdAt: now.toISOString(), completedAt: null });
 });
 
 router.post("/search/phone", requireAuth, requireQuota, async (req, res) => {
@@ -45,11 +38,11 @@ router.post("/search/phone", requireAuth, requireQuota, async (req, res) => {
   const user = (req as typeof req & { authUser: typeof usersTable.$inferSelect }).authUser;
   const { phone } = parsed.data;
   const id = randomUUID();
-  await db.insert(searchesTable).values({ id, type: "phone", query: phone, status: "pending", progress: 0, platformsTotal: 15, platformsSearched: 0 });
-  await incrementCount(user.id);
+  const now = new Date();
+  await db.insert(searchesTable).values({ id, type: "phone", query: phone, status: "pending", progress: 0, platformsTotal: 15, platformsSearched: 0, createdAt: now });
+  await db.update(usersTable).set({ searchCount: sql`search_count + 1`, updatedAt: now }).where(eq(usersTable.id, user.id));
   runPhoneSearch(id, phone).catch((err) => { logger.error(err, "phone search failed"); });
-  const [task] = await db.select().from(searchesTable).where(eq(searchesTable.id, id));
-  res.status(202).json(toSearchTask(task));
+  res.status(202).json({ id, status: "pending", type: "phone", query: phone, progress: 0, platformsSearched: 0, platformsTotal: 15, createdAt: now.toISOString(), completedAt: null });
 });
 
 router.post("/search/username", requireAuth, requireQuota, async (req, res) => {
@@ -58,11 +51,11 @@ router.post("/search/username", requireAuth, requireQuota, async (req, res) => {
   const user = (req as typeof req & { authUser: typeof usersTable.$inferSelect }).authUser;
   const { username } = parsed.data;
   const id = randomUUID();
-  await db.insert(searchesTable).values({ id, type: "username", query: username, status: "pending", progress: 0, platformsTotal: 400, platformsSearched: 0 });
-  await incrementCount(user.id);
+  const now = new Date();
+  await db.insert(searchesTable).values({ id, type: "username", query: username, status: "pending", progress: 0, platformsTotal: 400, platformsSearched: 0, createdAt: now });
+  await db.update(usersTable).set({ searchCount: sql`search_count + 1`, updatedAt: now }).where(eq(usersTable.id, user.id));
   runUsernameSearch(id, username).catch((err) => { logger.error(err, "username search failed"); });
-  const [task] = await db.select().from(searchesTable).where(eq(searchesTable.id, id));
-  res.status(202).json(toSearchTask(task));
+  res.status(202).json({ id, status: "pending", type: "username", query: username, progress: 0, platformsSearched: 0, platformsTotal: 400, createdAt: now.toISOString(), completedAt: null });
 });
 
 router.post("/search/deep", requireAuth, requireQuota, async (req, res) => {
@@ -81,15 +74,15 @@ router.post("/search/deep", requireAuth, requireQuota, async (req, res) => {
   if (username) { const sid = randomUUID(); subIds.push(sid); tasks.push(runUsernameSearch(sid, username)); }
 
   const platformsTotal = subIds.length > 0 ? subIds.length * 150 : 0;
-  await db.insert(searchesTable).values({ id, type: "deep", query: query || "deep search", status: "running", progress: 0, platformsTotal, platformsSearched: 0 });
-  await incrementCount(user.id);
+  const now = new Date();
+  await db.insert(searchesTable).values({ id, type: "deep", query: query || "deep search", status: "running", progress: 0, platformsTotal, platformsSearched: 0, createdAt: now });
+  await db.update(usersTable).set({ searchCount: sql`search_count + 1`, updatedAt: now }).where(eq(usersTable.id, user.id));
 
   Promise.allSettled(tasks).then(() => {
     db.update(searchesTable).set({ status: "completed", progress: 100, completedAt: new Date() }).where(eq(searchesTable.id, id)).catch((err) => { logger.error(err, "deep search update failed"); });
   });
 
-  const [task] = await db.select().from(searchesTable).where(eq(searchesTable.id, id));
-  res.status(202).json(toSearchTask(task));
+  res.status(202).json({ id, status: "running", type: "deep", query: query || "deep search", progress: 0, platformsSearched: 0, platformsTotal, createdAt: now.toISOString(), completedAt: null });
 });
 
 router.get("/search/:id", async (req, res) => {

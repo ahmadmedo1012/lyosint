@@ -62,6 +62,7 @@ RUN update-ca-certificates 2>/dev/null || true
 
 # Tell Node wrapper where Python lives (it also auto-discovers "python3" on PATH)
 ENV MAIGRET_PYTHON=/usr/local/bin/python3
+ENV MAIGRET_PREINSTALLED=true
 ENV PYTHONUNBUFFERED=1
 
 # Copy app

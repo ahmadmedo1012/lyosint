@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -139,7 +140,7 @@ function ServicesTab({ token }: { token: string }) {
     try {
       const data = await apiFetch("/api/admin/settings", {}, token);
       setServices(data.services ?? []);
-    } catch { } finally { setLoading(false); }
+    } catch (err) { console.error("fetch services failed", err); } finally { setLoading(false); }
   }, [token]);
 
   useEffect(() => { fetchServices(); }, [fetchServices]);
@@ -164,7 +165,7 @@ function ServicesTab({ token }: { token: string }) {
     try {
       await apiFetch(`/api/admin/settings/${key}`, { method: "DELETE" }, token);
       await fetchServices();
-    } catch { } finally { setSaving(false); }
+    } catch (err) { console.error("delete service key failed", err); } finally { setSaving(false); }
   };
 
   const categoryColors: Record<string, string> = {
@@ -184,8 +185,11 @@ function ServicesTab({ token }: { token: string }) {
   const configured = services.filter((s) => s.isConfigured).length;
 
   if (loading) return (
-    <div className="flex items-center justify-center py-20">
-      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground/40" />
+    <div className="space-y-3 p-4">
+      <Skeleton className="h-10 w-48 rounded-lg" />
+      <Skeleton className="h-20 w-full rounded-xl" />
+      <Skeleton className="h-20 w-full rounded-xl" />
+      <Skeleton className="h-20 w-full rounded-xl" />
     </div>
   );
 
@@ -297,7 +301,7 @@ function SystemConfigTab({ token }: { token: string }) {
     try {
       const data = await apiFetch("/api/admin/system-config", {}, token);
       setConfig(data.config ?? []);
-    } catch { } finally { setLoading(false); }
+    } catch (err) { console.error("fetch system config failed", err); } finally { setLoading(false); }
   }, [token]);
 
   useEffect(() => { fetchConfig(); }, [fetchConfig]);
@@ -334,12 +338,16 @@ function SystemConfigTab({ token }: { token: string }) {
         method: "PUT", body: JSON.stringify({ value: item.defaultValue }),
       }, token);
       await fetchConfig();
-    } catch { } finally { setSaving(null); }
+    } catch (err) { console.error("reset config failed", err); } finally { setSaving(null); }
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center py-20">
-      <Loader2 className="w-6 h-6 animate-spin text-muted-foreground/40" />
+    <div className="space-y-3 p-4">
+      <Skeleton className="h-5 w-64 rounded-lg" />
+      <Skeleton className="h-10 w-full rounded-xl" />
+      <Skeleton className="h-10 w-full rounded-xl" />
+      <Skeleton className="h-10 w-full rounded-xl" />
+      <Skeleton className="h-10 w-full rounded-xl" />
     </div>
   );
 
@@ -386,7 +394,7 @@ function SystemConfigTab({ token }: { token: string }) {
                             method: "PUT", body: JSON.stringify({ value: newVal }),
                           }, token);
                           await fetchConfig();
-                        } catch { } finally { setSaving(null); }
+                        } catch (err) { console.error("toggle config failed", err); } finally { setSaving(null); }
                       }}
                       disabled={saving === item.key}
                       className="text-primary hover:text-primary/80 transition-colors"
@@ -701,7 +709,17 @@ function UsersTab({ token, onSessionExpired }: { token: string; onSessionExpired
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground/40" /></div>
+            <div className="divide-y divide-border/30 px-4 py-3 space-y-3">
+              {Array(5).fill(0).map((_, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <Skeleton className="w-8 h-8 rounded-full shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground text-sm">لا يوجد مستخدمون</div>
           ) : (

@@ -5,6 +5,8 @@
  * Maigret (github.com/soxoj/maigret)
  */
 import { getSetting } from "./settingsService";
+import { LRUCache } from "../lib/cache";
+import { safeJsonFetch } from "../lib/safeFetch";
 
 export type CheckStatus = "found" | "not_found" | "manual_check" | "error" | "rate_limited";
 
@@ -451,7 +453,10 @@ async function checkOnePlatform(
         return { slug: platform.slug, name: platform.name, category: platform.category, status: "rate_limited", url: profileUrl, verified: true };
       } else {
         try {
-          const data = await res.json();
+          const data = await Promise.race([
+            res.json(),
+            new Promise<null>((_, reject) => setTimeout(() => reject(new Error("Body read timeout")), 3000)),
+          ]);
           // Patch username into the condition for platforms that need it
           if (platform.slug === "stackoverflow") {
             const items = (data as any)?.items;
@@ -586,8 +591,8 @@ async function checkOnePlatform(
 
 const CONCURRENCY = 16;
 
-// ── Result cache (re-checking same username within 60s returns cached) ────────
-const httpResultCache = new Map<string, { results: PlatformResult[]; expires: number }>();
+// ── Result cache (re-checking same username within 60s returns cached, max 1000) ─
+const httpResultCache = new LRUCache<PlatformResult[]>(1000);
 
 async function runWithConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
   const results: T[] = [];
@@ -606,7 +611,7 @@ async function runWithConcurrency<T>(tasks: (() => Promise<T>)[], limit: number)
 export async function checkUsername(username: string, timeoutMs?: number): Promise<PlatformResult[]> {
   const cacheKey = `http:${username}:${timeoutMs ?? 5000}`;
   const cached = httpResultCache.get(cacheKey);
-  if (cached && cached.expires > Date.now()) return cached.results;
+  if (cached) return cached;
 
   const githubToken = await getSetting("github_token");
   const timeout = timeoutMs ?? 5000;
@@ -624,6 +629,6 @@ export async function checkUsername(username: string, timeoutMs?: number): Promi
     }));
 
   const all = [...verifiedResults, ...manualResults];
-  httpResultCache.set(cacheKey, { results: all, expires: Date.now() + 60_000 });
+  httpResultCache.set(cacheKey, all, 60_000);
   return all;
 }

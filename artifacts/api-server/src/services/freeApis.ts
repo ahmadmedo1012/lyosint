@@ -5,16 +5,17 @@
  *                IPInfo, AbstractAPI Email, EmailRep.io, LeakCheck
  */
 import { getSetting } from "./settingsService";
+import { LRUCache } from "../lib/cache";
 
 const UA = "LYOSINT-OSINT-Bot/3.0";
 
-// ── Generic TTL cache ──────────────────────────────────────────────────────────
-const cache = new Map<string, { data: unknown; expires: number }>();
+// ── Generic TTL cache (LRU, max 1000 entries) ─────────────────────────────────
+const cache = new LRUCache<unknown>(1000);
 function cached<T>(key: string, ttlMs: number, fn: () => Promise<T | null>): Promise<T | null> {
-  const hit = cache.get(key);
-  if (hit && hit.expires > Date.now()) return Promise.resolve(hit.data as T | null);
+  const hit = cache.get(key) as T | undefined;
+  if (hit !== undefined) return Promise.resolve(hit);
   return fn().then((data) => {
-    cache.set(key, { data, expires: Date.now() + ttlMs });
+    cache.set(key, data, ttlMs);
     return data;
   }).catch(() => null);
 }
