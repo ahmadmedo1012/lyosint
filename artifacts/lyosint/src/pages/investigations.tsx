@@ -113,7 +113,7 @@ export default function InvestigationsPage() {
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <Input placeholder="بحث في التحقيقات..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-10 h-10" />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={(v: string) => setStatusFilter(v)}>
             <SelectTrigger className="w-full sm:w-[140px] h-10"><SelectValue placeholder="الحالة" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل الحالات</SelectItem>
@@ -123,7 +123,7 @@ export default function InvestigationsPage() {
               <SelectItem value="archived">مؤرشف</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+          <Select value={priorityFilter} onValueChange={(v: string) => setPriorityFilter(v)}>
             <SelectTrigger className="w-full sm:w-[140px] h-10"><SelectValue placeholder="الأولوية" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل الأولويات</SelectItem>
@@ -231,7 +231,7 @@ export default function InvestigationsPage() {
             </div>
             <div className="space-y-2">
               <Label>الأولوية</Label>
-              <Select value={newPriority} onValueChange={setNewPriority}>
+              <Select value={newPriority} onValueChange={(v: string) => setNewPriority(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="critical">حرج</SelectItem>

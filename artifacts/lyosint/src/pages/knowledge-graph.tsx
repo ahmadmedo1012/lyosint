@@ -113,7 +113,7 @@ export default function KnowledgeGraphPage() {
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <Input placeholder="بحث في الكيانات..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-10 h-10" />
           </div>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <Select value={typeFilter} onValueChange={(v: string) => setTypeFilter(v)}>
             <SelectTrigger className="w-full sm:w-[130px] h-10"><SelectValue placeholder="النوع" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل الأنواع</SelectItem>
@@ -124,7 +124,7 @@ export default function KnowledgeGraphPage() {
               <SelectItem value="organization">مؤسسة</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={minConfidence} onValueChange={setMinConfidence}>
+          <Select value={minConfidence} onValueChange={(v: string) => setMinConfidence(v)}>
             <SelectTrigger className="w-full sm:w-[130px] h-10"><SelectValue placeholder="الثقة" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="0">كل المستويات</SelectItem>

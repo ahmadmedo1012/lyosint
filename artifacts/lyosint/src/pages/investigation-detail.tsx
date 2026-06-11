@@ -150,7 +150,7 @@ export default function InvestigationDetailPage() {
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={(v: string) => setActiveTab(v)}>
           <TabsList className="w-full justify-start h-auto p-1 gap-1 bg-secondary/30 border border-border/30 rounded-xl overflow-x-auto">
             {["overview", "entities", "evidence", "timeline", "graph"].map((tab) => (
               <TabsTrigger key={tab} value={tab} className="text-xs data-[state=active]:bg-card">

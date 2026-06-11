@@ -61,7 +61,7 @@ export function EvidencePanel({ evidence }: EvidencePanelProps) {
           <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
           <Input placeholder="بحث في الأدلة..." value={search} onChange={(e) => setSearch(e.target.value)} className="pr-8 h-9 text-xs" />
         </div>
-        <Select value={sortField} onValueChange={(v) => setSortField(v as SortField)}>
+        <Select value={sortField} onValueChange={(v: SortField) => setSortField(v)}>
           <SelectTrigger className="w-full sm:w-[120px] h-9 text-xs"><ArrowUpDown className="w-3 h-3 ml-1" />ترتيب</SelectTrigger>
           <SelectContent>
             <SelectItem value="confidence">الثقة</SelectItem>
@@ -69,7 +69,7 @@ export function EvidencePanel({ evidence }: EvidencePanelProps) {
             <SelectItem value="source">المصدر</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as FilterStatus)}>
+        <Select value={statusFilter} onValueChange={(v: FilterStatus) => setStatusFilter(v)}>
           <SelectTrigger className="w-full sm:w-[120px] h-9 text-xs"><Filter className="w-3 h-3 ml-1" />حالة</SelectTrigger>
           <SelectContent>
             <SelectItem value="all">الكل</SelectItem>
