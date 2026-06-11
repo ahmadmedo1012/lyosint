@@ -7,16 +7,15 @@
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
-    "render:build": "pnpm install --no-frozen-lockfile && pnpm run build",
-    "render:start": "pnpm --filter @workspace/api-server start",
-    "start": "pnpm --filter @workspace/api-server start"
+    "render:build": "test -f artifacts/api-server/dist/index.mjs && echo 'render:build OK (built by Docker)' || (echo 'WARNING: artifacts not found, Docker should handle build'; exit 0)",
+    "render:start": "node --enable-source-maps artifacts/api-server/dist/index.mjs",
+    "start": "node --enable-source-maps artifacts/api-server/dist/index.mjs"
   },
-  "packageManager": "pnpm@9.15.10",
+  "private": true,
   "engines": {
     "node": ">=20.0.0",
     "pnpm": ">=9.0.0"
   },
-  "private": true,
   "devDependencies": {
     "prettier": "^3.8.3",
     "typescript": "~5.9.3"

@@ -1,5 +1,9 @@
 FROM node:20-alpine AS base
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+# Lock corepack to the installed pnpm version — prevents auto-download of
+# incompatible versions (e.g. v11+) when pnpm is invoked at runtime.
+ENV COREPACK_DEFAULT_VERSION=9.12.0
+ENV COREPACK_ENABLE_STRICT=false
 WORKDIR /app
 
 # Create non-root user for production
