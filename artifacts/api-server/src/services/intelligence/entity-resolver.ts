@@ -1,8 +1,8 @@
 import { randomUUID } from "crypto";
 import { db } from "@workspace/db";
 import {
-  entitiesTable, entityIdentifiersTable, entityProfilesTable,
-  entityEvidenceTable, entityTimelineTable,
+  entitiesTable, identifiersTable, profilesTable,
+  evidenceTable, timelineEventsTable,
   type InsertEntity,
 } from "@workspace/db";
 import { eq, and, or } from "drizzle-orm";
@@ -28,12 +28,12 @@ async function findExistingEntityByIdentifier(
   normalizedValue: string,
 ): Promise<string | null> {
   const rows = await db
-    .select({ entityId: entityIdentifiersTable.entityId })
-    .from(entityIdentifiersTable)
+    .select({ entityId: identifiersTable.entityId })
+    .from(identifiersTable)
     .where(
       and(
-        eq(entityIdentifiersTable.type, type as any),
-        eq(entityIdentifiersTable.normalizedValue, normalizedValue),
+        eq(identifiersTable.type, type as any),
+        eq(identifiersTable.normalizedValue, normalizedValue),
       ),
     )
     .limit(1);
@@ -82,19 +82,19 @@ async function upsertIdentifier(
   verified: boolean,
 ): Promise<void> {
   const existing = await db
-    .select({ id: entityIdentifiersTable.id })
-    .from(entityIdentifiersTable)
+    .select({ id: identifiersTable.id })
+    .from(identifiersTable)
     .where(
       and(
-        eq(entityIdentifiersTable.entityId, entityId),
-        eq(entityIdentifiersTable.type, type as any),
-        eq(entityIdentifiersTable.normalizedValue, normalizedValue),
+        eq(identifiersTable.entityId, entityId),
+        eq(identifiersTable.type, type as any),
+        eq(identifiersTable.normalizedValue, normalizedValue),
       ),
     )
     .limit(1);
 
   if (existing.length === 0) {
-    await db.insert(entityIdentifiersTable).values({
+    await db.insert(identifiersTable).values({
       id: randomUUID(),
       entityId,
       type: type as any,
@@ -122,19 +122,19 @@ async function upsertProfile(
   },
 ): Promise<void> {
   const existing = await db
-    .select({ id: entityProfilesTable.id })
-    .from(entityProfilesTable)
+    .select({ id: profilesTable.id })
+    .from(profilesTable)
     .where(
       and(
-        eq(entityProfilesTable.entityId, entityId),
-        eq(entityProfilesTable.platform, platform),
+        eq(profilesTable.entityId, entityId),
+        eq(profilesTable.platform, platform),
       ),
     )
     .limit(1);
 
   const now = new Date();
   if (existing.length === 0) {
-    await db.insert(entityProfilesTable).values({
+    await db.insert(profilesTable).values({
       id: randomUUID(),
       entityId,
       platform,
@@ -151,15 +151,15 @@ async function upsertProfile(
     });
   } else {
     await db
-      .update(entityProfilesTable)
+      .update(profilesTable)
       .set({ updatedAt: now, ...data })
-      .where(eq(entityProfilesTable.id, existing[0]!.id));
+      .where(eq(profilesTable.id, existing[0]!.id));
   }
 }
 
 async function storeEvidence(entityId: string, items: EvidenceItem[]): Promise<void> {
   if (items.length === 0) return;
-  await db.insert(entityEvidenceTable).values(
+  await db.insert(evidenceTable).values(
     items.map((e) => ({
       id: e.id,
       entityId,
@@ -185,7 +185,7 @@ async function addTimelineEvent(
   source: string,
   metadata?: Record<string, unknown>,
 ): Promise<void> {
-  await db.insert(entityTimelineTable).values({
+  await db.insert(timelineEventsTable).values({
     id: randomUUID(),
     entityId,
     eventType,
@@ -351,10 +351,10 @@ export async function getFullEntity(entityId: string) {
   if (!entity) return null;
 
   const [identifiers, profiles, evidence, timeline] = await Promise.all([
-    db.select().from(entityIdentifiersTable).where(eq(entityIdentifiersTable.entityId, entityId)),
-    db.select().from(entityProfilesTable).where(eq(entityProfilesTable.entityId, entityId)),
-    db.select().from(entityEvidenceTable).where(eq(entityEvidenceTable.entityId, entityId)),
-    db.select().from(entityTimelineTable).where(eq(entityTimelineTable.entityId, entityId)),
+    db.select().from(identifiersTable).where(eq(identifiersTable.entityId, entityId)),
+    db.select().from(profilesTable).where(eq(profilesTable.entityId, entityId)),
+    db.select().from(evidenceTable).where(eq(evidenceTable.entityId, entityId)),
+    db.select().from(timelineEventsTable).where(eq(timelineEventsTable.entityId, entityId)),
   ]);
 
   return { entity, identifiers, profiles, evidence, timeline };
@@ -366,24 +366,24 @@ export async function mergeEntities(
 ): Promise<void> {
   await db.transaction(async (tx) => {
     await tx
-      .update(entityIdentifiersTable)
+      .update(identifiersTable)
       .set({ entityId: targetEntityId })
-      .where(eq(entityIdentifiersTable.entityId, sourceEntityId));
+      .where(eq(identifiersTable.entityId, sourceEntityId));
 
     await tx
-      .update(entityProfilesTable)
+      .update(profilesTable)
       .set({ entityId: targetEntityId })
-      .where(eq(entityProfilesTable.entityId, sourceEntityId));
+      .where(eq(profilesTable.entityId, sourceEntityId));
 
     await tx
-      .update(entityEvidenceTable)
+      .update(evidenceTable)
       .set({ entityId: targetEntityId })
-      .where(eq(entityEvidenceTable.entityId, sourceEntityId));
+      .where(eq(evidenceTable.entityId, sourceEntityId));
 
     await tx
-      .update(entityTimelineTable)
+      .update(timelineEventsTable)
       .set({ entityId: targetEntityId })
-      .where(eq(entityTimelineTable.entityId, sourceEntityId));
+      .where(eq(timelineEventsTable.entityId, sourceEntityId));
 
     await tx
       .update(entitiesTable)

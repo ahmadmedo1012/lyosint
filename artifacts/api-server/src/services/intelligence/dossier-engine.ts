@@ -1,8 +1,8 @@
 import { randomUUID } from "crypto";
 import { db } from "@workspace/db";
 import {
-  dossiersTable, entitiesTable, entityIdentifiersTable,
-  entityProfilesTable, entityEvidenceTable, entityTimelineTable,
+  dossiersTable, entitiesTable, identifiersTable,
+  profilesTable, evidenceTable, timelineEventsTable,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { scoreToLevel, confidenceLevelLabel } from "./confidence-engine";
@@ -13,10 +13,10 @@ export async function generateDossier(entityId: string): Promise<string> {
   if (!entity) throw new Error(`Entity ${entityId} not found`);
 
   const [identifiers, profiles, evidence, timeline] = await Promise.all([
-    db.select().from(entityIdentifiersTable).where(eq(entityIdentifiersTable.entityId, entityId)),
-    db.select().from(entityProfilesTable).where(eq(entityProfilesTable.entityId, entityId)),
-    db.select().from(entityEvidenceTable).where(eq(entityEvidenceTable.entityId, entityId)),
-    db.select().from(entityTimelineTable).where(eq(entityTimelineTable.entityId, entityId)),
+    db.select().from(identifiersTable).where(eq(identifiersTable.entityId, entityId)),
+    db.select().from(profilesTable).where(eq(profilesTable.entityId, entityId)),
+    db.select().from(evidenceTable).where(eq(evidenceTable.entityId, entityId)),
+    db.select().from(timelineEventsTable).where(eq(timelineEventsTable.entityId, entityId)),
   ]);
 
   const level = scoreToLevel(entity.confidenceScore ?? 0);

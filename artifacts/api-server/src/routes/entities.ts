@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
-  entitiesTable, entityIdentifiersTable, entityProfilesTable,
-  entityEvidenceTable, entityTimelineTable, dossiersTable, investigationsTable,
-  entityRelationshipsTable,
+  entitiesTable, identifiersTable, profilesTable,
+  evidenceTable, timelineEventsTable, dossiersTable, investigationsTable,
+  relationshipsTable,
 } from "@workspace/db";
 import { eq, desc, ilike, or } from "drizzle-orm";
 import { getFullEntity, mergeEntities } from "../services/intelligence/entity-resolver";
@@ -146,12 +146,12 @@ router.get("/entities/graph/data", async (req, res) => {
 
     const identifiers = await db
       .select()
-      .from(entityIdentifiersTable)
+      .from(identifiersTable)
       .limit(500);
 
     const relationships = await db
       .select()
-      .from(entityRelationshipsTable)
+      .from(relationshipsTable)
       .limit(500);
 
     const nodes = allEntities.map(e => ({

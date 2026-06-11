@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import {
-  entitiesTable, entityIdentifiersTable, entityProfilesTable, entityEvidenceTable,
+  entitiesTable, identifiersTable, profilesTable, evidenceTable,
 } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { logger } from "../../lib/logger";
@@ -23,14 +23,14 @@ export async function lookupMemory(
 
   const rows = await db
     .select({
-      entityId: entityIdentifiersTable.entityId,
-      createdAt: entityIdentifiersTable.createdAt,
+      entityId: identifiersTable.entityId,
+      createdAt: identifiersTable.createdAt,
     })
-    .from(entityIdentifiersTable)
+    .from(identifiersTable)
     .where(
       and(
-        eq(entityIdentifiersTable.type, type),
-        eq(entityIdentifiersTable.normalizedValue, normalizedValue),
+        eq(identifiersTable.type, type),
+        eq(identifiersTable.normalizedValue, normalizedValue),
       ),
     )
     .limit(1);
@@ -43,8 +43,8 @@ export async function lookupMemory(
 
   const [entityRows, profileCountRows, evidenceCountRows] = await Promise.all([
     db.select().from(entitiesTable).where(eq(entitiesTable.id, entityId)).limit(1),
-    db.select().from(entityProfilesTable).where(eq(entityProfilesTable.entityId, entityId)),
-    db.select().from(entityEvidenceTable).where(eq(entityEvidenceTable.entityId, entityId)),
+    db.select().from(profilesTable).where(eq(profilesTable.entityId, entityId)),
+    db.select().from(evidenceTable).where(eq(evidenceTable.entityId, entityId)),
   ]);
 
   const entity = entityRows[0];
@@ -69,9 +69,9 @@ export async function enrichFromMemory(
   entityId: string,
 ): Promise<{ identifierCount: number; profileCount: number; evidenceCount: number }> {
   const [identifiers, profiles, evidence] = await Promise.all([
-    db.select().from(entityIdentifiersTable).where(eq(entityIdentifiersTable.entityId, entityId)),
-    db.select().from(entityProfilesTable).where(eq(entityProfilesTable.entityId, entityId)),
-    db.select().from(entityEvidenceTable).where(eq(entityEvidenceTable.entityId, entityId)),
+    db.select().from(identifiersTable).where(eq(identifiersTable.entityId, entityId)),
+    db.select().from(profilesTable).where(eq(profilesTable.entityId, entityId)),
+    db.select().from(evidenceTable).where(eq(evidenceTable.entityId, entityId)),
   ]);
 
   return {
