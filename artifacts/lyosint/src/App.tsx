@@ -11,9 +11,11 @@ import PlatformsPage from "@/pages/platforms";
 import HistoryPage from "@/pages/history";
 import AccountPage from "@/pages/account";
 import AdminPage from "@/pages/admin";
-import EntitiesPage from "@/pages/entities";
-import EntityPage from "@/pages/entity";
-import GraphPage from "@/pages/graph";
+import InvestigationsPage from "@/pages/investigations";
+import InvestigationDetailPage from "@/pages/investigation-detail";
+import EntityDetailPage from "@/pages/entity-detail";
+import KnowledgeGraphPage from "@/pages/knowledge-graph";
+import DossiersPage from "@/pages/dossiers";
 import { ThemeProvider } from "@/contexts/theme";
 import { AuthProvider, useAuth } from "@/contexts/auth";
 import { LoginPage } from "@/components/telegram-login";
@@ -28,7 +30,6 @@ function AuthGate() {
   const { user, loading } = useAuth();
   const [location, setLocation] = useLocation();
 
-  // Admin panel is completely independent — no user auth needed
   if (location === "/admin" || location.startsWith("/admin/")) {
     return <ErrorBoundary><AdminPage /></ErrorBoundary>;
   }
@@ -59,12 +60,15 @@ function AuthGate() {
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/search/:id" component={SearchResultPage} />
+          <Route path="/investigations" component={InvestigationsPage} />
+          <Route path="/investigation/:id" component={InvestigationDetailPage} />
+          <Route path="/entity/:id" component={EntityDetailPage} />
+          <Route path="/graph" component={KnowledgeGraphPage} />
+          <Route path="/dossiers" component={DossiersPage} />
+          <Route path="/dossier/:id" component={DossiersPage} />
           <Route path="/platforms" component={PlatformsPage} />
           <Route path="/history" component={HistoryPage} />
           <Route path="/account" component={AccountPage} />
-          <Route path="/entities" component={EntitiesPage} />
-          <Route path="/entities/:id" component={EntityPage} />
-          <Route path="/graph" component={GraphPage} />
           <Route component={NotFound} />
         </Switch>
       </ErrorBoundary>

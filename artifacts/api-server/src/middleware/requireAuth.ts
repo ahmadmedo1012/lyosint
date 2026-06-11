@@ -1,25 +1,19 @@
 import { type Request, type Response, type NextFunction } from "express";
 import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { toPublicUser } from "../routes/auth";
 import { getSystemConfigNumber } from "../services/settingsService";
+import { LRUCache } from "../lib/cache";
 
-// ─── Session token cache ────────────────────────────────────────────────────
-const sessionCache = new Map<string, { user: typeof usersTable.$inferSelect; ttl: number }>();
-const SESSION_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const sessionCache = new LRUCache<typeof usersTable.$inferSelect>(1000);
+const SESSION_CACHE_TTL = 5 * 60 * 1000;
 
 function getCachedUser(token: string): typeof usersTable.$inferSelect | undefined {
-  const entry = sessionCache.get(token);
-  if (!entry || Date.now() > entry.ttl) {
-    sessionCache.delete(token);
-    return undefined;
-  }
-  return entry.user;
+  return sessionCache.get(token);
 }
 
 function setCachedUser(token: string, user: typeof usersTable.$inferSelect) {
-  if (sessionCache.size > 1000) sessionCache.clear();
-  sessionCache.set(token, { user, ttl: Date.now() + SESSION_CACHE_TTL });
+  sessionCache.set(token, user, SESSION_CACHE_TTL);
 }
 
 export function clearSessionCache(token?: string) {
@@ -74,8 +68,7 @@ export async function requireQuota(req: Request, res: Response, next: NextFuncti
 }
 
 export async function incrementSearchCount(userId: string) {
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
-  if (user) {
-    await db.update(usersTable).set({ searchCount: user.searchCount + 1, updatedAt: new Date() }).where(eq(usersTable.id, userId));
-  }
+  await db.update(usersTable)
+    .set({ searchCount: sql`search_count + 1`, updatedAt: new Date() })
+    .where(eq(usersTable.id, userId));
 }

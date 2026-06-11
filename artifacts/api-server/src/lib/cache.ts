@@ -32,6 +32,10 @@ export class LRUCache<V> {
     return this.map.size;
   }
 
+  delete(key: string): void {
+    this.map.delete(key);
+  }
+
   clear(): void {
     this.map.clear();
   }

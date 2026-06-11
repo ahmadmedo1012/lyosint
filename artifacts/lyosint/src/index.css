@@ -468,6 +468,46 @@
   }
 }
 
+/* ──────────────────────────────────────
+   DOSSIER PRINT STYLES
+────────────────────────────────────── */
+@media print {
+  body { background: white !important; color: black !important; }
+  .sidebar, .sidebar-wrapper, header, nav, .no-print { display: none !important; }
+  .dossier-content { max-width: 100% !important; padding: 0 !important; }
+  .dossier-content h1 { font-size: 24pt !important; }
+  .dossier-content h2 { font-size: 18pt !important; }
+  .dossier-content p { font-size: 11pt !important; line-height: 1.6 !important; }
+  @page { margin: 2cm; }
+}
+
+/* ──────────────────────────────────────
+   TIMELINE STYLES
+────────────────────────────────────── */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ──────────────────────────────────────
+   GRAPH STATUS PULSE
+────────────────────────────────────── */
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.status-pulse {
+  animation: status-pulse 2s ease-in-out infinite;
+}
+
+/* ──────────────────────────────────────
+   SPINNER KEYFRAME
+────────────────────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spin 3s linear infinite;
+}
+
 @layer utilities {
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;

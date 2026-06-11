@@ -4,15 +4,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { PageTransition } from "@/components/page-transition";
 import { IdentityReport } from "@/components/search/identity-report";
+import { EvidencePanel } from "@/components/evidence-panel";
+import { GraphVisualization } from "@/components/graph-visualization";
 import {
   User, Phone, AtSign, CheckCircle2, AlertTriangle, XCircle,
   Loader2, ExternalLink, Github, Network, Shield, Wifi,
-  Key, Database, Link as LinkIcon, Copy, Globe, Search, ChevronRight
+  Key, Database, Link as LinkIcon, Copy, Globe, Search,
+  FolderSearch, Plus, Target, GitFork
 } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 
 const TYPE_LABELS: Record<string, string> = {
   name: "اسم", phone: "هاتف", username: "معرّف", deep: "شامل",
@@ -159,7 +162,7 @@ function SkeletonCard() {
 
 export default function SearchResultPage() {
   const { id } = useParams();
-  const [, navigate] = useLocation();
+  const [, setLocation] = useLocation();
 
   const { data: statusData } = useGetSearchStatus(id!, {
     query: {
@@ -195,7 +198,6 @@ export default function SearchResultPage() {
   const phoneResult = resultData?.phoneResult as PhoneResult | undefined;
   const usernameResult = resultData?.usernameResult as UsernameResult | undefined;
   const confidenceScore = resultData?.confidenceScore as number | undefined;
-  const entityId = (resultData as Record<string, unknown> | undefined)?.entityId as string | undefined;
 
   return (
     <PageTransition>
@@ -228,23 +230,6 @@ export default function SearchResultPage() {
             </div>
           </div>
         </div>
-
-        {/* Entity Intelligence Banner */}
-        {isCompleted && entityId && (
-          <div
-            onClick={() => navigate(`/entities/${entityId}`)}
-            className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 cursor-pointer hover:bg-primary/10 transition-all group"
-          >
-            <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-              <User className="w-4 h-4 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-primary">الكيان الاستخباراتي مُنشأ</div>
-              <div className="text-xs text-muted-foreground">انقر لعرض ملف الهوية الكامل — الأدلة، الجدول الزمني، والتقرير</div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-          </div>
-        )}
 
         {/* Running State */}
         {isRunning && (
@@ -303,6 +288,118 @@ export default function SearchResultPage() {
               {nameResult && <NameResultSection data={nameResult} />}
               {phoneResult && <PhoneResultSection data={phoneResult} />}
               {usernameResult && <UsernameResultSection data={usernameResult} />}
+
+              {/* Enhanced: Entity Resolution */}
+              {confidenceScore !== undefined && confidenceScore !== null && (
+                <Card className="border-border/50 glow-box overflow-hidden">
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-2.5 mb-4">
+                      <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                        <Target className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold">حل الهوية</div>
+                        <div className="text-xs text-muted-foreground font-mono">تحليل الهوية الرقمية والأدلة المرتبطة</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                      {[
+                        { label: "درجة الثقة", value: `${Math.round(confidenceScore * 100)}%`, color: confidenceScore > 0.75 ? "text-green-400" : confidenceScore > 0.4 ? "text-amber-400" : "text-destructive" },
+                        { label: "الأدلة", value: usernameResult ? Object.keys(usernameResult.profilesFound || {}).length : 0, color: "text-primary" },
+                        { label: "المصادر", value: usernameResult?.sources?.length || 0, color: "text-blue-400" },
+                        { label: "المنصات", value: usernameResult?.totalPlatformsSearched || 0, color: "text-purple-400" },
+                      ].map((s) => (
+                        <div key={s.label} className="p-3 rounded-lg bg-secondary/20 border border-border/30 text-center">
+                          <div className={`text-lg font-bold font-mono tabular-nums ${s.color}`}>{s.value}</div>
+                          <div className="text-[10px] text-muted-foreground">{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setLocation(`/entity/${id}`)}>
+                        <Target className="w-3.5 h-3.5" /> عرض تفاصيل الكيان
+                      </Button>
+                      <Button size="sm" className="gap-1.5" onClick={() => setLocation("/investigations")}>
+                        <Plus className="w-3.5 h-3.5" /> إضافة لتحقيق
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Enhanced: Evidence Panel */}
+              {usernameResult && Object.keys(usernameResult.profilesFound || {}).length > 0 && (
+                <Card className="border-border/50 glow-box overflow-hidden">
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-2.5 mb-4">
+                      <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                        <Shield className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold">الأدلة المجمعة</div>
+                        <div className="text-xs text-muted-foreground font-mono">مصادر وتوثيق المعلومات</div>
+                      </div>
+                    </div>
+                    <EvidencePanel
+                      evidence={Object.entries(usernameResult.profilesFound || {})
+                        .filter(([, p]) => p.exists)
+                        .slice(0, 10)
+                        .map(([source, profile], idx) => ({
+                          id: `ev-search-${idx}`,
+                          title: `حساب ${source}`,
+                          source,
+                          sourceType: profile.verified ? "social" : "web",
+                          confidence: profile.exists ? (profile.verified ? 90 : 70) : 30,
+                          date: statusData?.completedAt || statusData?.createdAt || "",
+                          summary: profile.displayName ? `اسم العرض: ${profile.displayName}` : `حساب على ${source}`,
+                        }))}
+                    />
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Enhanced: Graph Mini-View */}
+              {usernameResult && Object.keys(usernameResult.profilesFound || {}).length > 1 && (
+                <Card className="border-border/50 glow-box overflow-hidden">
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-2.5 mb-4">
+                      <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                        <GitFork className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold">خريطة العلاقات</div>
+                        <div className="text-xs text-muted-foreground font-mono">تصور بياني للكيانات المرتبطة</div>
+                      </div>
+                    </div>
+                    <div className="h-[250px] rounded-lg border border-border/30 bg-card overflow-hidden">
+                      <GraphVisualization
+                        nodes={[
+                          { id: "main", label: statusData?.query || "الهدف", type: "person", confidence: Math.round((confidenceScore || 0) * 100) },
+                          ...Object.entries(usernameResult.profilesFound || {})
+                            .filter(([, p]) => p.exists)
+                            .slice(0, 8)
+                            .map(([platform], idx) => ({
+                              id: `p-${idx}`,
+                              label: platform,
+                              type: "username",
+                              confidence: 70,
+                            })),
+                        ]}
+                        edges={Object.entries(usernameResult.profilesFound || {})
+                          .filter(([, p]) => p.exists)
+                          .slice(0, 8)
+                          .map((_, idx) => ({
+                            source: "main",
+                            target: `p-${idx}`,
+                            type: "uses",
+                            label: "مرتبط",
+                          }))}
+                        height={230}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
             </div>
           </PageTransition>

@@ -2,6 +2,9 @@ FROM node:20-alpine AS base
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /app
 
+# Create non-root user for production
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
 # ── Maigret Python stage ────────────────────────────────────────────────────
 # Installs Python 3.12 + maigret 0.6.1 + minimal [reporting] extras (no aiohttp
 # server, no playwright, no aiosqlite — we just need the core checker).
@@ -40,7 +43,7 @@ RUN pnpm run build
 
 FROM base AS api
 ENV NODE_ENV=production
-ENV PORT=10000
+ENV PORT=3000
 
 # Install Python 3.12 runtime + minimal libs Maigret needs at runtime
 # (the compiled extension modules are in the maigret wheel itself)
@@ -68,5 +71,14 @@ ENV PYTHONUNBUFFERED=1
 # Copy app
 COPY --from=build /app /app
 WORKDIR /app
-EXPOSE 10000
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-3000}/api/health || exit 1
+
+# Switch to non-root user
+USER appuser
+
+ENTRYPOINT ["tini", "--"]
 CMD ["pnpm", "run", "render:start"]

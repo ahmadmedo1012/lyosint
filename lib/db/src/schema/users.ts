@@ -8,6 +8,8 @@ export const usersTable = pgTable("users", {
   username: text("username"),
   photoUrl: text("photo_url"),
   sessionToken: text("session_token"),
+  passwordHash: text("password_hash"),
+  totpSecret: text("totp_secret"),
   searchCount: integer("search_count").notNull().default(0),
   isSubscribed: boolean("is_subscribed").notNull().default(false),
   subscribedAt: timestamp("subscribed_at"),

@@ -1,166 +1,208 @@
-# LYOSINT — Libya OSINT SuperTool v3.0
+# LYOSINT — Intelligence Investigation Platform
 
-A full-stack Open Source Intelligence (OSINT) investigation platform targeting Libya. Search for individuals by name, phone number (+218), or username across 40+ Libyan-specific and international platforms with real-time progress tracking and dossier-style results.
+**منصة الاستخبارات مفتوحة المصدر — تحليل المعلومات المفتوحة في ثوانٍ**
 
-Deployed on **Render** (single Docker service) + **Neon** (serverless PostgreSQL). The same codebase also runs locally on Replit and other Node 20+ environments.
-
----
-
-## Stack
-
-- pnpm workspaces, Node.js 20+
-- **API + Web**: Express 5 serves both the JSON API (`/api/*`) and the built Vite SPA (`/*`) from one process
-- **DB**: PostgreSQL + Drizzle ORM (Neon-compatible)
-- **Validation**: Zod v4, drizzle-zod
-- **API codegen**: Orval (from `openapi.yaml`)
-- **API build**: esbuild (ESM bundle)
-- **Frontend**: React 19 + Vite 7 + Tailwind CSS 4 + shadcn/ui + wouter + TanStack Query
+LYOSINT is a full-stack OSINT investigation platform rebuilt from scratch as an entity-centric intelligence system. Search for individuals by name, phone (+218), or username across 40+ Libyan-specific and international platforms. View results as interactive knowledge graphs, evidence-backed timelines, and structured dossiers. Every search enriches a persistent intelligence database.
 
 ---
 
-## Project layout
+## Quick Start
 
-```
-.
-├── artifacts/
-│   ├── api-server/      # Express 5 API (Drizzle, OSINT services, static SPA host)
-│   └── lyosint/         # React + Vite SPA (built output served by the API)
-├── lib/
-│   ├── api-spec/        # OpenAPI 3.1 contract (source of truth) + Orval config
-│   ├── api-client-react/# Orval-generated React Query hooks + custom fetch
-│   ├── api-zod/         # Orval-generated Zod schemas
-│   └── db/              # Drizzle schema + pool
-├── scripts/             # Operational scripts
-├── render.yaml          # Render Blueprint (single pserv)
-├── Dockerfile           # Multi-stage build ending in the API server
-└── .github/workflows/   # CI (typecheck + build)
-```
-
----
-
-## Local development
-
-### Prerequisites
-- Node.js 20+
-- pnpm 9+ (`npm install -g pnpm`)
-- PostgreSQL 14+ (local or Neon)
-
-### Install
 ```bash
 pnpm install
 cp .env.example .env
 cp artifacts/api-server/.env.example artifacts/api-server/.env
-# edit .env files with your local DATABASE_URL, etc.
+# edit .env with your DATABASE_URL
+pnpm --filter @workspace/db run push
+pnpm --filter @workspace/api-server run dev    # API on :8080
+pnpm --filter @workspace/lyosint run dev       # Frontend on :19190
 ```
 
-### Common scripts
+---
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **Multi-type Search** | Name, phone (+218 Libyan prefix detection), username — each optimized for the target |
+| **Deep Search** | Cross-query with name + phone + username in one operation |
+| **40+ Platforms** | Facebook, Instagram, X, Telegram, LinkedIn, GitHub, TikTok, Snapchat, Libyan sites, and more |
+| **Knowledge Graph** | Force-directed Canvas graph with entity resolution, relationship inference, pathfinding |
+| **Timeline Engine** | Automatic timeline construction from evidence with gap detection and pattern identification |
+| **Dossier Generation** | 9-section structured reports with confidence assessment, JSON and Markdown output |
+| **Confidence Scoring** | Bayesian evidence-weighted scoring with bilingual explanations (Arabic/English) |
+| **Entity Resolution** | Fuzzy matching (Jaro-Winkler + Levenshtein), SHA-256 fingerprinting, deduplication |
+| **Memory Layer** | Learned patterns, false positive signatures, source reliability scores |
+| **Full Audit Trail** | Tamper-evident SHA-256 checksums on every action |
+| **JWT Auth + 2FA** | Access/refresh token rotation, TOTP two-factor authentication, Telegram login |
+| **Admin Panel** | User management, API key config, system settings, OSINT tool status |
+| **RTL Arabic UI** | Full right-to-left layout, Arabic interface text |
+| **Subscription Mgmt** | Free tier quota + subscription-based unlimited access |
+
+---
+
+## Architecture Overview
+
+```
+Client (React 19 SPA)  ─── /api/* ─── Express 5 Server ─── PostgreSQL
+   TanStack Query                    │                         │
+   shadcn/ui/Tailwind                ├── 11 Core Services      ├── Drizzle ORM
+   Canvas Graph Vis                  ├── Security Layer        ├── pgvector
+   Framer Motion                     └── Queue + Cache         └── 18 Tables
+```
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed diagrams and service descriptions.
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **Runtime** | Node.js 20+ | Server-side execution |
+| **API Framework** | Express 5 | HTTP routing + middleware |
+| **Language** | TypeScript 5.9 | Type safety across stack |
+| **Frontend** | React 19 + Vite 7 | SPA with HMR |
+| **Styling** | Tailwind CSS v4 + shadcn/ui | Component system + dark theme |
+| **Data Fetching** | TanStack Query v5 | Caching + auto-generated hooks |
+| **Database** | PostgreSQL 14+ | Persistent storage |
+| **ORM** | Drizzle ORM 0.45 | Type-safe SQL |
+| **Vector Search** | pgvector | Semantic entity search |
+| **Auth** | JWT + TOTP | Stateless auth with 2FA |
+| **Build** | pnpm + esbuild | Monorepo + ESM bundling |
+
+See [TECH_STACK.md](./TECH_STACK.md) for detailed technology decisions.
+
+---
+
+## Project Structure
+
+```
+lyosint/
+├── artifacts/
+│   ├── api-server/              # Express 5 API server
+│   │   └── src/
+│   │       ├── routes/          # Route handlers
+│   │       ├── services/        # 11 core business services
+│   │       ├── middleware/      # Security, auth, audit, rate-limit
+│   │       └── lib/             # Cache, JWT, errors, logger
+│   └── lyosint/                 # React + Vite SPA
+│       └── src/
+│           ├── pages/           # 12 page components
+│           ├── components/      # UI components (search, graph, dossier, etc.)
+│           ├── contexts/        # Auth + Theme providers
+│           └── hooks/           # Custom React hooks
+├── lib/
+│   ├── db/                      # Drizzle schema + PostgreSQL pool
+│   ├── api-spec/                # OpenAPI 3.1 contract
+│   ├── api-zod/                 # Generated Zod schemas
+│   └── api-client-react/        # Generated TanStack Query hooks
+├── scripts/                     # Maigret runner, ops scripts
+├── specs/                       # Feature specifications
+├── Dockerfile                   # Multi-stage production build
+└── render.yaml                  # Render Blueprint config
+```
+
+---
+
+## Setup
+
+### Prerequisites
+- Node.js 20+
+- pnpm 9+ (`npm install -g pnpm`)
+- PostgreSQL 14+ with pgvector extension
+
+### Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABASE_URL` | yes | — | PostgreSQL connection string (Neon auto-detects SSL) |
+| `TELEGRAM_BOT_TOKEN` | yes (prod) | — | Telegram bot token for auth |
+| `ADMIN_USERNAME` | no | `admin` | Admin login username |
+| `ADMIN_PASSWORD` | yes (prod) | — | Admin password (no default) |
+| `PORT` | no | `10000` | HTTP port |
+| `LOG_LEVEL` | no | `info` | pino log level |
+| `DB_POOL_MAX` | no | `10` | Max PG pool size |
+| `JWT_SECRET` | no | auto | JWT signing secret |
+
+### Development
+
 ```bash
-pnpm run typecheck                # full typecheck across all packages
-pnpm run build                    # typecheck + build all packages
-pnpm --filter @workspace/api-spec run codegen   # regenerate API hooks/schemas
-pnpm --filter @workspace/db run push            # push Drizzle schema to DB (dev)
+pnpm install
+pnpm run typecheck                              # Full typecheck
+pnpm --filter @workspace/db run push            # Push schema to DB
 pnpm --filter @workspace/api-server run dev     # API on :8080
-pnpm --filter @workspace/lyosint run dev        # Vite dev server on :19190
+pnpm --filter @workspace/lyosint run dev        # Frontend on :19190
+pnpm --filter @workspace/api-spec run codegen   # Regenerate API types (after editing openapi.yaml)
 ```
 
-### Ports
-- API: `8080` (override with `PORT`)
-- Frontend dev: `19190` (override with `PORT`)
+### Production Build
+
+```bash
+pnpm run build
+pnpm run start   # or: docker build -t lyosint . && docker run -p 3000:3000 lyosint
+```
 
 ---
 
-## Deployment to Render + Neon
+## API Summary
 
-The project ships with a single Docker Web Service that runs Express on Render. The same Express process serves the JSON API at `/api/*` and the built Vite SPA at everything else (with a fallback to `index.html` for client-side routes).
+| Endpoint Group | Methods | Description |
+|---------------|---------|-------------|
+| `/api/health` | GET | Health check |
+| `/api/stats` | GET | System statistics |
+| `/api/platform-coverage` | GET | Search platform list |
+| `/api/search/name` | POST | Search by name |
+| `/api/search/phone` | POST | Search by phone |
+| `/api/search/username` | POST | Search by username |
+| `/api/search/deep` | POST | Cross-query search |
+| `/api/search/:id` | GET | Search result data |
+| `/api/search/:id/status` | GET | Search progress |
+| `/api/searches/recent` | GET | Recent searches |
+| `/api/auth/*` | POST/GET | Auth (register, login, Telegram, 2FA, password reset) |
+| `/api/admin/*` | POST/GET | Admin (stats, users, settings, system config) |
 
-### 1. Provision the database (Neon)
-
-1. Create a project at https://neon.tech.
-2. Copy the **pooled** connection string (e.g. `postgresql://...ep-xxxx-pooler.region.aws.neon.tech/neondb?sslmode=require`).
-3. Note it as `DATABASE_URL` for the service.
-
-The pool code (`lib/db/src/index.ts`) auto-detects `*.neon.tech` URLs and enables SSL with `rejectUnauthorized: false`.
-
-### 2. Provision Telegram bot credentials
-
-- `TELEGRAM_BOT_TOKEN` — from @BotFather
-- After the service is live, set the webhook once:
-  ```bash
-  curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
-    -H "Content-Type: application/json" \
-    -d '{"url": "https://<your-service>.onrender.com/api/auth/bot-webhook", "allowed_updates": ["message"]}'
-  ```
-
-### 3. Create the Render service
-
-1. Push this repo to GitHub.
-2. In Render → **New** → **Web Service**, connect the repo.
-3. Render detects the Dockerfile at the repo root. Confirm:
-   - **Runtime**: Docker
-   - **Docker Build Context**: `.`
-   - **Dockerfile Path**: `./Dockerfile`
-   - **Health Check Path**: `/api/health`
-   - **Pre-Deploy Command**: `pnpm --filter @workspace/db run push` (applies Drizzle schema)
-4. Add the required environment variables (see table below).
-5. Deploy.
-
-The `render.yaml` at the repo root captures the same configuration for Blueprint-based provisioning.
+All search endpoints return `202 Accepted` immediately with a task ID. Frontend polls `/search/:id/status` until completion. See [ARCHITECTURE.md](./ARCHITECTURE.md) for full endpoint details.
 
 ---
 
-## Environment variables
+## Deployment
 
-The frontend and API live in the same service, so all env vars are set on a single Render service.
+### Render + Neon
 
-| Var | Required | Default | Description |
-|---|---|---|---|
-| `DATABASE_URL` | yes | — | PostgreSQL connection string. Neon URLs auto-enable SSL. |
-| `TELEGRAM_BOT_TOKEN` | yes (prod) | — | Telegram bot token for login + webhooks. |
-| `ADMIN_USERNAME` | yes (prod) | `admin` | Admin login username. |
-| `ADMIN_PASSWORD` | yes (prod) | — | Admin login password. **No default** — must be set. |
-| `NODE_ENV` | no | `development` | Set to `production` in prod. |
-| `PORT` | no | `10000` | HTTP port. Render sets it automatically. |
-| `LOG_LEVEL` | no | `info` | pino log level (`debug` / `info` / `warn` / `error`). |
-| `DB_POOL_MAX` | no | `10` | Max PG pool size. |
-| `CORS_ORIGIN` | no | `true` (any) | Only needed if a separate frontend host is used. |
-| `VITE_API_URL` | no | *(empty)* | Leave empty when API and SPA share an origin. |
-| `VITE_TELEGRAM_BOT_USERNAME` | no | `lyosintbot` | Telegram @username of the login bot. |
+```bash
+git push main   # Auto-deploys via render.yaml
+```
 
-See [`.env.example`](.env.example) at the repo root and [`artifacts/api-server/.env.example`](artifacts/api-server/.env.example).
+The Dockerfile builds a single image with:
+- Python 3.12 + Maigret 0.6.1 sidecar
+- Non-root app user
+- tini init system
+- Health check endpoint
 
----
+### Manual Docker
 
-## API key settings (via admin panel, not env)
-
-The following OSINT service keys are configured at runtime from the admin panel and stored in the database. They are **not** environment variables.
-
-- `github_token`, `hunter_api_key`, `hibp_api_key`, `shodan_api_key`
-- `numverify_api_key`, `virustotal_api_key`
-- `twitch_client_id`, `twitch_client_secret`
-- `ipinfo_token`, `abstractapi_email_key`, `emailrep_key`, `leakcheck_key`
-
-Plus system config (`sys_free_search_quota`, `sys_subscription_days`, `sys_max_concurrent_searches`, `sys_platform_check_timeout`, `sys_site_name`, `sys_maintenance_mode`) and the admin credentials override (`sys_admin_username`, `sys_admin_password`).
+```bash
+docker build -t lyosint .
+docker run -p 3000:3000 \
+  -e DATABASE_URL=postgres://... \
+  -e TELEGRAM_BOT_TOKEN=... \
+  -e ADMIN_PASSWORD=... \
+  lyosint
+```
 
 ---
 
-## Architecture decisions
+## Contributing
 
-- **Single deployable unit**: Express serves the API at `/api/*` and the built Vite SPA at `/*` with an SPA fallback. No second service, no CORS, no inter-service networking.
-- All searches are async: POST returns a task immediately; the frontend polls `/search/:id/status` until complete.
-- Search logic runs as fire-and-forget async functions updating the DB row with progress.
-- Username search runs in batches across 40+ platforms with delays to simulate real scanning.
-- Phone carrier identification uses Libyan prefix rules (`091/093` = Al-Madar, `092/094` = Libyana, `095/096` = LibyaPhone).
-- The API client uses a single `customFetch` wrapper that respects `setBaseUrl(VITE_API_URL)`. With `VITE_API_URL` empty (the default), all requests use relative `/api/...` paths, which is correct when the SPA is served from the same origin as the API.
-
----
-
-## Gotchas
-
-- Always run `pnpm --filter @workspace/api-spec run codegen` after editing `openapi.yaml`.
-- Google Fonts must be loaded via `<link>` in `index.html`, **not** via `@import` in CSS (PostCSS fails with URL @imports after `@layer` rules).
-- On Neon, **always use the `-pooler` hostname** (e.g. `ep-xxx-pooler.region.aws.neon.tech`) from serverless clients — direct hostnames only allow a small number of connections.
-- The `preinstall` script in the root `package.json` refuses `npm install` and `yarn install`; use `pnpm` only.
-- The frontend's `BASE_PATH` is the Vite `base` config (asset prefix), **not** the API path.
+1. Read the phase plan in [docs/PHASE_PLAN.md](./docs/PHASE_PLAN.md)
+2. Understand the architecture in [ARCHITECTURE.md](./ARCHITECTURE.md)
+3. Check [TECH_STACK.md](./TECH_STACK.md) for technology decisions
+4. Use `pnpm` (not npm/yarn) — the preinstall script enforces this
+5. Run `pnpm run typecheck` before committing
+6. Keep files under 500 lines
+7. Follow the existing code conventions (TypeScript strict, RTL-first Arabic UI)
+8. All UI text must support Arabic; error messages should be bilingual
 
 ---
 

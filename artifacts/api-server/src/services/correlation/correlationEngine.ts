@@ -533,7 +533,7 @@ function normalizeUsername(value: string): string {
   return normalizeText(value);
 }
 
-function normalizeText(value: string): string {
+export function normalizeText(value: string): string {
   return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "").trim();
 }
 
