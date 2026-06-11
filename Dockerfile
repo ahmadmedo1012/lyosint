@@ -1,9 +1,5 @@
 FROM node:20-alpine AS base
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
-# Lock corepack to the installed pnpm version — prevents auto-download of
-# incompatible versions (e.g. v11+) when pnpm is invoked at runtime.
-ENV COREPACK_DEFAULT_VERSION=9.12.0
-ENV COREPACK_ENABLE_STRICT=false
 WORKDIR /app
 
 # Create non-root user for production
@@ -74,6 +70,12 @@ ENV PYTHONUNBUFFERED=1
 
 # Copy app
 COPY --from=build /app /app
+
+# Disable corepack — prevents auto-download of incompatible pnpm (e.g. v11+
+# which requires Node 22). Install pnpm 9.12.0 directly as a global so that
+# any pnpm invocation at runtime uses the correct Node-20-compatible version.
+RUN corepack disable 2>/dev/null; npm install -g pnpm@9.12.0
+
 WORKDIR /app
 EXPOSE 3000
 
