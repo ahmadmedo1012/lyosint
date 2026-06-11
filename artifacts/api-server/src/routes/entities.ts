@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import {
   entitiesTable, entityIdentifiersTable, entityProfilesTable,
   entityEvidenceTable, entityTimelineTable, dossiersTable, investigationsTable,
+  entityRelationshipsTable,
 } from "@workspace/db";
 import { eq, desc, ilike, or } from "drizzle-orm";
 import { getFullEntity, mergeEntities } from "../services/intelligence/entity-resolver";
@@ -131,6 +132,79 @@ router.get("/investigations", async (req, res) => {
     res.json({ investigations: rows, total: rows.length });
   } catch (err) {
     logger.error(err, "GET /investigations failed");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/entities/graph/data", async (req, res) => {
+  try {
+    const allEntities = await db
+      .select()
+      .from(entitiesTable)
+      .orderBy(desc(entitiesTable.updatedAt))
+      .limit(200);
+
+    const identifiers = await db
+      .select()
+      .from(entityIdentifiersTable)
+      .limit(500);
+
+    const relationships = await db
+      .select()
+      .from(entityRelationshipsTable)
+      .limit(500);
+
+    const nodes = allEntities.map(e => ({
+      id: e.id,
+      label: e.label,
+      status: e.status,
+      confidenceScore: e.confidenceScore ?? 0,
+      avatarUrl: e.avatarUrl,
+      summary: e.summary,
+      identifiers: identifiers
+        .filter(i => i.entityId === e.id)
+        .map(i => ({ type: i.type, value: i.value })),
+    }));
+
+    const edges = relationships.map(r => ({
+      id: r.id,
+      source: r.sourceEntityId,
+      target: r.targetEntityId,
+      type: r.relationType,
+      confidence: r.confidence ?? 50,
+      label: r.evidence,
+    }));
+
+    // Add implicit edges between entities that share the same identifier value
+    const valueMap = new Map<string, string[]>();
+    for (const ident of identifiers) {
+      if (!ident.value) continue;
+      const key = `${ident.type}:${ident.value}`;
+      if (!valueMap.has(key)) valueMap.set(key, []);
+      valueMap.get(key)!.push(ident.entityId!);
+    }
+    const implicitEdges: typeof edges = [];
+    for (const [, eids] of valueMap) {
+      if (eids.length < 2) continue;
+      for (let i = 0; i < eids.length - 1; i++) {
+        for (let j = i + 1; j < eids.length; j++) {
+          if (eids[i] !== eids[j]) {
+            implicitEdges.push({
+              id: `implicit-${eids[i]}-${eids[j]}`,
+              source: eids[i],
+              target: eids[j],
+              type: "same_identifier",
+              confidence: 80,
+              label: null,
+            });
+          }
+        }
+      }
+    }
+
+    res.json({ nodes, edges: [...edges, ...implicitEdges] });
+  } catch (err) {
+    logger.error(err, "GET /entities/graph/data failed");
     res.status(500).json({ error: "Internal server error" });
   }
 });
