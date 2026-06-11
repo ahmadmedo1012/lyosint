@@ -82,8 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (telegramData: Record<string, string>) => {
     const data = await apiFetch("/api/auth/telegram", { method: "POST", body: JSON.stringify(telegramData) });
-    localStorage.setItem(TOKEN_KEY, data.sessionToken);
-    setToken(data.sessionToken);
+    localStorage.setItem(TOKEN_KEY, data.accessToken);
+    setToken(data.accessToken);
     setUser(data.user);
   }, []);
 

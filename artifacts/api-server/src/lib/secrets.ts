@@ -72,15 +72,21 @@ function validateRequired(): void {
     }
   }
   if (missing.length > 0) {
-    // Check if fallback generation is explicitly disabled
-    if (process.env.DISABLE_SECRET_FALLBACKS === "true") {
+    // Log the environment and missing secrets for debugging
+    logger.error({
+      missingSecrets: missing,
+      nodeEnv: process.env.NODE_ENV,
+      disableFallbacks: process.env.DISABLE_SECRET_FALLBACKS
+    }, `VALIDATE_REQUIRED: Missing secrets: ${missing.join(", ")}, NODE_ENV: ${process.env.NODE_ENV}`);
+
+    // In production, we must not generate fallbacks
+    if (process.env.NODE_ENV === "production") {
       throw new Error(
-        `الأسماء الأسرارية الإجبارية مفقودة: ${missing.join(", ")}. `
-        + "تأكد من تعيينها في المتغيرات البيئية أو ملف .env",
+        `الأسماء الأسرارية الإجبارية مفقودة: ${missing.join(", ")}. تأكد من تعيينها في المتغيرات البيئية أو ملف .env`
       );
     }
 
-    // Generate fallback secrets when required secrets are missing
+    // Generate fallback secrets when required secrets are missing in non-production
     // WARNING: This is for development convenience only and should never be used in production
     for (const key of missing) {
       let fallback: string;

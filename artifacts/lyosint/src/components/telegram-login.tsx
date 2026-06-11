@@ -65,7 +65,7 @@ export function TelegramLoginButton({ onSuccess }: { onSuccess?: () => void }) {
         });
         const data = await res.json();
         if (data.ready) {
-          await completeLogin(data.sessionToken);
+          await completeLogin(data.accessToken);
         }
       } catch {
         // keep polling
