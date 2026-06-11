@@ -11,6 +11,7 @@
     "render:start": "pnpm --filter @workspace/api-server start",
     "start": "pnpm --filter @workspace/api-server start"
   },
+  "packageManager": "pnpm@9.15.10",
   "engines": {
     "node": ">=20.0.0",
     "pnpm": ">=9.0.0"
