@@ -61,9 +61,12 @@ function getSecret(key: keyof Secrets): string | undefined {
 }
 
 function validateRequired(): void {
+  logger.info({ test: "VALIDATE_REQUIRED_CALLED", timestamp: Date.now() }, "validateRequired function called");
   const missing: string[] = [];
   for (const key of REQUIRED_SECRETS) {
     const value = getSecret(key);
+    // DEBUG: Log what we're checking
+    logger.debug({ secret: key, value: value ?? '(null/undefined)', missingSoFar: missing }, `Checking secret ${key}`);
     if (!value) {
       missing.push(key);
     }
