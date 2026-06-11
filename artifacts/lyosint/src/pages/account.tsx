@@ -15,7 +15,7 @@ import { SUBSCRIPTION_PRICE_LABEL } from "@/lib/constants";
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string | null | undefined }) {
   if (!value) return null;
   return (
-    <div className="flex items-center justify-between py-3 border-b border-border/40 last:border-0">
+    <div className="flex items-center justify-between py-3 border-b border-border/10 last:border-0">
       <div className="flex items-center gap-2.5 text-muted-foreground">
         <Icon className="w-4 h-4 text-primary/60" />
         <span className="text-sm">{label}</span>
@@ -32,7 +32,7 @@ export default function AccountPage() {
   const [loading, setLoading] = useState<string | null>(null);
 
   if (!user) return (
-    <div className="space-y-6 page-transition" dir="rtl">
+    <div className="max-w-4xl mx-auto space-y-6" dir="rtl">
       <Skeleton className="h-8 w-48 rounded-lg" />
       <Skeleton className="h-64 rounded-xl" />
       <Skeleton className="h-32 rounded-xl" />
@@ -54,34 +54,32 @@ export default function AccountPage() {
   const handleSubscribeClick = () => setPaywallOpen(true);
 
   return (
-    <div className="space-y-6 page-transition" dir="rtl">
+    <div className="max-w-4xl mx-auto space-y-6" dir="rtl">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-primary flex items-center gap-3 text-glow">
-            <User className="w-7 h-7 shrink-0" />
-            حساب المستخدم
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">إدارة ملفك الشخصي والاشتراك</p>
+          <h1 className="text-xl font-bold">حساب المستخدم</h1>
+          <p className="text-sm text-muted-foreground">إدارة ملفك الشخصي والاشتراك</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Profile Card */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Main Column */}
         <div className="lg:col-span-2 space-y-5">
-          <Card className="border-primary/20 bg-card/60">
-            <CardHeader className="border-b border-border/40 pb-4">
+          {/* Profile Card */}
+          <Card className="border-border/20">
+            <CardHeader className="border-b border-border/10 pb-4">
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <Shield className="w-4 h-4 text-primary" />
                 الملف الشخصي
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-5">
-              <div className="flex items-center gap-4 mb-6 pb-5 border-b border-border/40">
+              <div className="flex items-center gap-4 mb-6 pb-5 border-b border-border/10">
                 {user.photoUrl ? (
-                  <img src={user.photoUrl} alt="" className="w-16 h-16 rounded-full border-2 border-primary/30 shrink-0" />
+                  <img src={user.photoUrl} alt="" className="w-16 h-16 rounded-full border-2 border-border/30 shrink-0" />
                 ) : (
-                  <div className="w-16 h-16 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center shrink-0">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 border-2 border-border/30 flex items-center justify-center shrink-0">
                     <User className="w-8 h-8 text-primary/60" />
                   </div>
                 )}
@@ -115,8 +113,8 @@ export default function AccountPage() {
           </Card>
 
           {/* Subscription Card */}
-          <Card className={`border-2 ${isSubscribed ? "border-primary/30 bg-primary/5" : "border-border/40 bg-card/60"}`}>
-            <CardHeader className="border-b border-border/40 pb-4">
+          <Card className={`border ${isSubscribed ? "border-primary/20 bg-primary/4" : "border-border/20"}`}>
+            <CardHeader className="border-b border-border/10 pb-4">
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <Crown className={`w-4 h-4 ${isSubscribed ? "text-primary" : "text-muted-foreground"}`} />
                 الاشتراك
@@ -126,7 +124,7 @@ export default function AccountPage() {
               {isSubscribed ? (
                 <>
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-green-500">
+                    <div className="flex items-center gap-2 text-green-600">
                       <CheckCircle2 className="w-5 h-5" />
                       <span className="font-bold">اشتراك نشط</span>
                     </div>
@@ -162,18 +160,18 @@ export default function AccountPage() {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">عمليات البحث المستخدمة</span>
-                      <span className={`font-mono font-bold ${searchesRemaining === 0 ? "text-destructive" : "text-primary"}`}>
+                      <span className={`font-mono font-bold ${searchesRemaining === 0 ? "text-red-600" : "text-primary"}`}>
                         {user.searchCount} / 3
                       </span>
                     </div>
                     <div className="w-full bg-secondary rounded-full h-2">
                       <div
-                        className={`h-2 rounded-full transition-all ${searchesRemaining === 0 ? "bg-destructive" : "bg-primary"}`}
+                        className={`h-2 rounded-full transition-all ${searchesRemaining === 0 ? "bg-red-500" : "bg-primary"}`}
                         style={{ width: `${Math.min(100, (user.searchCount / 3) * 100)}%` }}
                       />
                     </div>
                     {searchesRemaining === 0 && (
-                      <p className="text-xs text-destructive">
+                      <p className="text-xs text-red-600">
                         لقد استنفدت عمليات البحث المجانية. اشترك للاستمرار.
                       </p>
                     )}
@@ -198,36 +196,32 @@ export default function AccountPage() {
           </Card>
         </div>
 
-        {/* Side Actions */}
+        {/* Sidebar */}
         <div className="space-y-4">
-          <Card className="bg-card/60 border-border/40">
+          <Card className="border-border/20">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-wider">إجراءات سريعة</CardTitle>
+              <CardTitle className="text-sm font-bold text-muted-foreground">إجراءات سريعة</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 pt-0">
-              <Button variant="outline" className="w-full justify-start gap-2.5 h-10 text-sm border-border/60"
+              <Button variant="outline" className="w-full justify-start gap-2.5 h-10 text-sm border-border/40"
                 onClick={() => setLocation("/")}>
                 <Search className="w-4 h-4 text-primary" />
                 بدء بحث جديد
               </Button>
-              <Button variant="outline" className="w-full justify-start gap-2.5 h-10 text-sm border-border/60"
+              <Button variant="outline" className="w-full justify-start gap-2.5 h-10 text-sm border-border/40"
                 onClick={() => setLocation("/history")}>
                 <Clock className="w-4 h-4 text-primary" />
                 عرض السجل
               </Button>
               <a href="https://t.me/lyosint_support" target="_blank" rel="noopener noreferrer">
-                <Button variant="outline" className="w-full justify-start gap-2.5 h-10 text-sm border-border/60">
+                <Button variant="outline" className="w-full justify-start gap-2.5 h-10 text-sm border-border/40">
                   <Send className="w-4 h-4 text-primary" />
                   تواصل مع الدعم
                 </Button>
               </a>
-              <div className="pt-2 border-t border-border/40">
-                <Button
-                  variant="ghost"
-                  onClick={handleLogout}
-                  disabled={loading === "logout"}
-                  className="w-full justify-start gap-2.5 h-10 text-sm text-destructive hover:text-destructive hover:bg-destructive/10"
-                >
+              <div className="pt-2 border-t border-border/10">
+                <Button variant="ghost" onClick={handleLogout} disabled={loading === "logout"}
+                  className="w-full justify-start gap-2.5 h-10 text-sm text-red-600 hover:text-red-600 hover:bg-red-500/10">
                   <LogOut className="w-4 h-4" />
                   تسجيل الخروج
                 </Button>
@@ -235,13 +229,13 @@ export default function AccountPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-card/60 border-border/40">
+          <Card className="border-border/20">
             <CardContent className="pt-4 space-y-3">
-              <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">إحصائياتك</h3>
+              <h3 className="text-sm font-bold text-muted-foreground">إحصائياتك</h3>
               {[
                 { label: "عمليات البحث الكلية", value: user.searchCount, color: "text-primary" },
-                { label: "حالة الحساب", value: isSubscribed ? "مشترك" : "مجاني", color: isSubscribed ? "text-green-500" : "text-muted-foreground" },
-                { label: "بحث متاح", value: isSubscribed ? "∞" : `${searchesRemaining} متبقي`, color: searchesRemaining === 0 && !isSubscribed ? "text-destructive" : "text-foreground" },
+                { label: "حالة الحساب", value: isSubscribed ? "مشترك" : "مجاني", color: isSubscribed ? "text-green-600" : "text-muted-foreground" },
+                { label: "بحث متاح", value: isSubscribed ? "∞" : `${searchesRemaining} متبقي`, color: searchesRemaining === 0 && !isSubscribed ? "text-red-600" : "text-foreground" },
               ].map((stat) => (
                 <div key={stat.label} className="flex justify-between items-center">
                   <span className="text-xs text-muted-foreground">{stat.label}</span>

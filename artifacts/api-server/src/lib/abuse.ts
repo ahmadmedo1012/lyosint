@@ -19,10 +19,10 @@ const ipStore = new LRUCache<IPRecord>(5000);
 setInterval(() => {
   const now = Date.now();
   let cleaned = 0;
-  for (const key of Object.keys(ipStore)) {
-    const entry = (ipStore as unknown as Map<string, IPRecord>).get(key);
+  for (const key of ipStore.keys()) {
+    const entry = ipStore.get(key);
     if (entry && entry.blockedUntil < now && entry.requestWindowStart < now - FAILED_WINDOW_MS) {
-      (ipStore as unknown as Map<string, IPRecord>).delete(key);
+      ipStore.delete(key);
       cleaned++;
     }
   }

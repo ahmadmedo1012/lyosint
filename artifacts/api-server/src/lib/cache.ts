@@ -39,4 +39,8 @@ export class LRUCache<V> {
   clear(): void {
     this.map.clear();
   }
+
+  keys(): IterableIterator<string> {
+    return this.map.keys();
+  }
 }

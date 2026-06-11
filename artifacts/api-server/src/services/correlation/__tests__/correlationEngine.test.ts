@@ -23,7 +23,7 @@ function found(
 function profilesFrom(
   results: PlatformResult[],
   overrides?: Record<string, Partial<{ displayName: string; bio: string }>>,
-): Record<string, { url: string; exists: boolean; status: string; verified: boolean; displayName?: string; bio?: string; profileData: Record<string, unknown> }> {
+): Record<string, { url: string | null; exists: boolean; verified: boolean; displayName?: string; bio?: string; profileData: Record<string, unknown> }> {
   return Object.fromEntries(
     results.map((r) => {
       const ov = overrides?.[r.slug] ?? {};
@@ -32,7 +32,6 @@ function profilesFrom(
         {
           url: r.url,
           exists: true,
-          status: "found",
           verified: true,
           displayName: ov.displayName ?? (r.profileData?.name as string) ?? (r.profileData?.fullName as string),
           bio: ov.bio ?? (r.profileData?.bio as string),
@@ -202,7 +201,6 @@ describe("correlationEngine", () => {
         github: {
           url: results[0].url,
           exists: true,
-          status: "found",
           verified: true,
           profileData: {},
         },
@@ -225,7 +223,6 @@ describe("correlationEngine", () => {
         github: {
           url: results[0].url,
           exists: true,
-          status: "found",
           verified: true,
           profileData: {},
         },

@@ -6,7 +6,6 @@
  */
 import { getSetting } from "./settingsService";
 import { LRUCache } from "../lib/cache";
-import { safeJsonFetch } from "../lib/safeFetch";
 
 export type CheckStatus = "found" | "not_found" | "manual_check" | "error" | "rate_limited";
 

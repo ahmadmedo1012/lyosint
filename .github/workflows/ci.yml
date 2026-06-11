@@ -80,11 +80,10 @@ jobs:
         run: pnpm install --frozen-lockfile=false
 
       - name: Run tests
-        run: pnpm -r run test
+        run: pnpm -r --if-present run test
         env:
           DATABASE_URL: postgres://lyosint:lyosint_test@localhost:5432/lyosint_test
           NODE_ENV: test
-        continue-on-error: true
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4

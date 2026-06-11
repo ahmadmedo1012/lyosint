@@ -88,7 +88,7 @@ describe("rateLimit middleware", () => {
 
     middleware({ ip: "10.0.0.4", socket: {} } as Request, res, next);
 
-    expect(res.headers["X-RateLimit-Limit"]).toBeDefined();
-    expect(res.headers["X-RateLimit-Remaining"]).toBeDefined();
+    expect((res as any).headers["X-RateLimit-Limit"]).toBeDefined();
+    expect((res as any).headers["X-RateLimit-Remaining"]).toBeDefined();
   });
 });

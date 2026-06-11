@@ -1,12 +1,11 @@
-import { randomUUID } from "crypto";
+import { randomUUID, createHash } from "crypto";
 import { db } from "@workspace/db";
 import {
   entitiesTable, identifiersTable, profilesTable,
   evidenceTable, timelineEventsTable,
-  type InsertEntity,
 } from "@workspace/db";
-import { eq, and, or } from "drizzle-orm";
-import { computeConfidence, scoreToLevel } from "./confidence-engine";
+import { eq, and } from "drizzle-orm";
+import { computeConfidence } from "./confidence-engine";
 import {
   buildEvidenceFromUsernameResult,
   buildEvidenceFromPhoneResult,
@@ -43,9 +42,7 @@ async function findExistingEntityByIdentifier(
 async function upsertEntity(
   id: string,
   label: string,
-  avatarUrl: string | null,
-  confidenceScore: number,
-  summary: string | null,
+  riskScore: number,
 ): Promise<void> {
   const existing = await db
     .select({ id: entitiesTable.id })
@@ -57,9 +54,7 @@ async function upsertEntity(
     await db.insert(entitiesTable).values({
       id,
       label,
-      confidenceScore,
-      avatarUrl: avatarUrl ?? undefined,
-      summary: summary ?? undefined,
+      riskScore,
       metadata: {},
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -67,7 +62,7 @@ async function upsertEntity(
   } else {
     await db
       .update(entitiesTable)
-      .set({ confidenceScore, updatedAt: new Date(), avatarUrl: avatarUrl ?? undefined, summary: summary ?? undefined })
+      .set({ riskScore, updatedAt: new Date() })
       .where(eq(entitiesTable.id, id));
   }
 }
@@ -78,8 +73,7 @@ async function upsertIdentifier(
   value: string,
   normalizedValue: string,
   source: string,
-  confidenceScore: number,
-  verified: boolean,
+  confidence: number,
 ): Promise<void> {
   const existing = await db
     .select({ id: identifiersTable.id })
@@ -100,8 +94,7 @@ async function upsertIdentifier(
       type: type as any,
       value,
       normalizedValue,
-      confidenceScore,
-      verified,
+      confidence,
       source,
       createdAt: new Date(),
     });
@@ -138,13 +131,12 @@ async function upsertProfile(
       id: randomUUID(),
       entityId,
       platform,
-      url: data.url ?? undefined,
+      profileUrl: data.url ?? undefined,
       username: data.username ?? undefined,
       displayName: data.displayName ?? undefined,
       bio: data.bio ?? undefined,
       avatarUrl: data.avatarUrl ?? undefined,
       verified: data.verified ?? false,
-      confidenceScore: data.verified ? 0.95 : 0.75,
       rawData: data.rawData ?? {},
       createdAt: now,
       updatedAt: now,
@@ -161,16 +153,14 @@ async function storeEvidence(entityId: string, items: EvidenceItem[]): Promise<v
   if (items.length === 0) return;
   await db.insert(evidenceTable).values(
     items.map((e) => ({
-      id: e.id,
       entityId,
-      type: e.type,
-      source: e.source,
-      platform: e.platform ?? undefined,
+      evidenceType: e.type,
+      sourceType: e.source,
+      sourceName: e.source,
       rawValue: e.rawValue ?? undefined,
       normalizedValue: e.normalizedValue ?? undefined,
-      confidenceScore: e.confidenceScore,
-      polarity: e.polarity,
-      description: e.description,
+      confidence: e.confidenceScore,
+      checksum: createHash("sha256").update(`${e.type}:${e.source}:${e.normalizedValue ?? e.rawValue ?? ""}`).digest("hex").slice(0, 32),
       metadata: e.metadata ?? {},
       timestamp: e.timestamp,
     })),
@@ -186,15 +176,13 @@ async function addTimelineEvent(
   metadata?: Record<string, unknown>,
 ): Promise<void> {
   await db.insert(timelineEventsTable).values({
-    id: randomUUID(),
     entityId,
     eventType,
     title,
     description,
     source,
+    eventDate: new Date(),
     metadata: metadata ?? {},
-    occurredAt: new Date(),
-    createdAt: new Date(),
   });
 }
 
@@ -214,11 +202,9 @@ export async function resolveEntityFromUsernameSearch(
     const profilesFound = searchResult["profilesFound"] as Record<string, { exists?: boolean; url?: string; displayName?: string; bio?: string; verified?: boolean; profileData?: Record<string, unknown> }> ?? {};
     const summary = searchResult["summary"] as Record<string, unknown> ?? {};
     const label = (summary["realName"] as string) || username;
-    const avatarUrl = (searchResult["profilePhoto"] as string) ?? null;
-    const summaryText = (summary["bio"] as string) ?? null;
 
-    await upsertEntity(entityId, label, avatarUrl, confidenceResult.score, summaryText);
-    await upsertIdentifier(entityId, "username", username, normalizedUsername, "username_search", confidenceResult.score, false);
+    await upsertEntity(entityId, label, confidenceResult.score);
+    await upsertIdentifier(entityId, "username", username, normalizedUsername, "username_search", confidenceResult.score);
 
     const maigretProfiles = searchResult["maigretProfiles"] as Array<Record<string, unknown>> ?? [];
     for (const mp of maigretProfiles) {
@@ -250,7 +236,7 @@ export async function resolveEntityFromUsernameSearch(
 
     const possibleEmail = searchResult["possibleEmail"] as string | null;
     if (possibleEmail) {
-      await upsertIdentifier(entityId, "email", possibleEmail, possibleEmail.toLowerCase(), "derived", 0.6, false);
+      await upsertIdentifier(entityId, "email", possibleEmail, possibleEmail.toLowerCase(), "derived", 0.6);
     }
 
     await storeEvidence(entityId, evidence);
@@ -286,8 +272,8 @@ export async function resolveEntityFromPhoneSearch(
     const confidenceResult = computeConfidence(evidence.map(evidenceToConfidenceInput));
 
     const label = `Phone: ${e164}`;
-    await upsertEntity(entityId, label, null, confidenceResult.score, null);
-    await upsertIdentifier(entityId, "phone", phone, e164, "phone_search", confidenceResult.score, searchResult["valid"] as boolean ?? false);
+    await upsertEntity(entityId, label, confidenceResult.score);
+    await upsertIdentifier(entityId, "phone", phone, e164, "phone_search", confidenceResult.score);
 
     await storeEvidence(entityId, evidence);
 
@@ -320,8 +306,8 @@ export async function resolveEntityFromNameSearch(
     const evidence = buildEvidenceFromNameResult(name, searchResult);
     const confidenceResult = computeConfidence(evidence.map(evidenceToConfidenceInput));
 
-    await upsertEntity(entityId, name, null, confidenceResult.score, null);
-    await upsertIdentifier(entityId, "name", name, normalizedName, "name_search", confidenceResult.score, false);
+    await upsertEntity(entityId, name, confidenceResult.score);
+    await upsertIdentifier(entityId, "name", name, normalizedName, "name_search", confidenceResult.score);
 
     await storeEvidence(entityId, evidence);
 
@@ -384,10 +370,5 @@ export async function mergeEntities(
       .update(timelineEventsTable)
       .set({ entityId: targetEntityId })
       .where(eq(timelineEventsTable.entityId, sourceEntityId));
-
-    await tx
-      .update(entitiesTable)
-      .set({ status: "merged", mergedIntoId: targetEntityId, updatedAt: new Date() })
-      .where(eq(entitiesTable.id, sourceEntityId));
   });
 }

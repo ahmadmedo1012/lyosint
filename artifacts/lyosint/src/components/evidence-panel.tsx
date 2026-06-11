@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -41,7 +41,7 @@ export function EvidencePanel({ evidence }: EvidencePanelProps) {
   const [sortField, setSortField] = useState<SortField>("confidence");
   const [verificationStatus, setVerificationStatus] = useState<Record<string, "verified" | "disputed" | "debunked">>({});
 
-  const filtered = evidence
+  const filtered = useMemo(() => evidence
     .filter((ev) => !search || ev.title.includes(search) || ev.summary.includes(search))
     .sort((a, b) => {
       if (sortField === "confidence") return b.confidence - a.confidence;
@@ -51,7 +51,7 @@ export function EvidencePanel({ evidence }: EvidencePanelProps) {
     .filter((ev) => {
       if (statusFilter === "all") return true;
       return (verificationStatus[ev.id] ?? "all") === statusFilter;
-    });
+    }), [evidence, search, sortField, statusFilter, verificationStatus]);
 
   return (
     <div className="space-y-3">

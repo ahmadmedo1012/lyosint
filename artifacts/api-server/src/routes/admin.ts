@@ -2,7 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 import { randomUUID, timingSafeEqual, createHash } from "crypto";
 import { db, usersTable, searchesTable } from "@workspace/db";
 import { eq, desc, count } from "drizzle-orm";
-import { toPublicUser } from "./auth";
+import { toPublicUser } from "../lib/user-transformer";
 import { logger } from "../lib/logger";
 import { isMaigretAvailable } from "../services/maigret";
 import { existsSync } from "node:fs";

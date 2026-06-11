@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Users, Crown, Search, RefreshCw, Trash2, CheckCircle2, XCircle,
   Shield, ChevronRight, ChevronLeft, Loader2, LogOut, Lock, Eye,
-  EyeOff, Key, ExternalLink, Zap, AlertCircle, Settings2, Sliders,
+  EyeOff, ExternalLink, Zap, AlertCircle, Settings2, Sliders,
   UserCog, Globe, ToggleLeft, ToggleRight, Save, RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -85,14 +85,13 @@ function AdminLogin({ onLogin }: { onLogin: (t: string) => void }) {
           <h1 className="text-xl font-bold">لوحة التحكم</h1>
           <p className="text-sm text-muted-foreground">أدخل بيانات الوصول للمتابعة</p>
         </div>
-        <Card className="border-border/60 shadow-md">
+        <Card className="border-border/30">
           <CardContent className="pt-5 pb-5">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">اسم المستخدم</label>
                 <Input value={username} onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin" autoComplete="username"
-                  className="h-10 bg-background border-border/60" dir="ltr" />
+                  placeholder="admin" autoComplete="username" className="h-10 bg-background border-border/40" dir="ltr" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">كلمة المرور</label>
@@ -100,7 +99,7 @@ function AdminLogin({ onLogin }: { onLogin: (t: string) => void }) {
                   <Input type={showPass ? "text" : "password"} value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••" autoComplete="current-password"
-                    className="h-10 bg-background border-border/60 pl-10" dir="ltr" />
+                    className="h-10 bg-background border-border/40 pl-10" dir="ltr" />
                   <button type="button" onClick={() => setShowPass(!showPass)}
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" tabIndex={-1}>
                     {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -108,7 +107,7 @@ function AdminLogin({ onLogin }: { onLogin: (t: string) => void }) {
                 </div>
               </div>
               {error && (
-                <div className="text-xs text-destructive bg-destructive/8 border border-destructive/20 rounded-lg px-3 py-2 text-center">
+                <div className="text-xs text-red-600 bg-red-500/8 border border-red-500/20 rounded-lg px-3 py-2 text-center">
                   {error}
                 </div>
               )}
@@ -162,20 +161,18 @@ function ServicesTab({ token }: { token: string }) {
   const handleDelete = async (key: string) => {
     if (!confirm("إزالة هذا المفتاح؟")) return;
     setSaving(true);
-    try {
-      await apiFetch(`/api/admin/settings/${key}`, { method: "DELETE" }, token);
-      await fetchServices();
-    } catch (err) { console.error("delete service key failed", err); } finally { setSaving(false); }
+    try { await apiFetch(`/api/admin/settings/${key}`, { method: "DELETE" }, token); await fetchServices(); }
+    catch (err) { console.error("delete service key failed", err); } finally { setSaving(false); }
   };
 
   const categoryColors: Record<string, string> = {
-    developer:    "text-blue-400 bg-blue-500/10 border-blue-500/20",
-    email:        "text-purple-400 bg-purple-500/10 border-purple-500/20",
-    breach:       "text-red-400 bg-red-500/10 border-red-500/20",
-    network:      "text-orange-400 bg-orange-500/10 border-orange-500/20",
-    phone:        "text-green-400 bg-green-500/10 border-green-500/20",
-    threat:       "text-yellow-400 bg-yellow-500/10 border-yellow-500/20",
-    social:       "text-pink-400 bg-pink-500/10 border-pink-500/20",
+    developer: "text-blue-600 bg-blue-500/10 border-blue-500/20",
+    email: "text-purple-600 bg-purple-500/10 border-purple-500/20",
+    breach: "text-red-600 bg-red-500/10 border-red-500/20",
+    network: "text-orange-600 bg-orange-500/10 border-orange-500/20",
+    phone: "text-green-600 bg-green-500/10 border-green-500/20",
+    threat: "text-yellow-600 bg-yellow-500/10 border-yellow-500/20",
+    social: "text-pink-600 bg-pink-500/10 border-pink-500/20",
   };
   const categoryLabels: Record<string, string> = {
     developer: "مطور", email: "بريد", breach: "اختراق",
@@ -185,8 +182,8 @@ function ServicesTab({ token }: { token: string }) {
   const configured = services.filter((s) => s.isConfigured).length;
 
   if (loading) return (
-    <div className="space-y-3 p-4">
-      <Skeleton className="h-10 w-48 rounded-lg" />
+    <div className="space-y-3">
+      <Skeleton className="h-5 w-48 rounded-lg" />
       <Skeleton className="h-20 w-full rounded-xl" />
       <Skeleton className="h-20 w-full rounded-xl" />
       <Skeleton className="h-20 w-full rounded-xl" />
@@ -198,18 +195,16 @@ function ServicesTab({ token }: { token: string }) {
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
         <div className="flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-amber-500" />
-          <p className="text-xs text-muted-foreground">المفاتيح مشفرة في قاعدة البيانات — لن تُعرض بعد الحفظ</p>
+          <p className="text-xs text-muted-foreground">المفاتيح مشفرة في قاعدة البيانات</p>
         </div>
-        <Badge variant="secondary" className="font-mono text-xs">
-          {configured}/{services.length} مُفعَّل
-        </Badge>
+        <Badge variant="secondary" className="font-mono text-xs">{configured}/{services.length} مُفعَّل</Badge>
       </div>
 
       {services.map((svc) => {
         const isEditing = editing === svc.key;
         const msgForThis = saveMsg?.key === svc.key;
         return (
-          <Card key={svc.key} className={`border-border/50 shadow-sm transition-all ${svc.isConfigured ? "border-primary/20" : ""}`}>
+          <Card key={svc.key} className={`border-border/20 transition-all ${svc.isConfigured ? "border-primary/20" : ""}`}>
             <CardContent className="p-4">
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div className="flex-1 min-w-0 space-y-1">
@@ -219,16 +214,14 @@ function ServicesTab({ token }: { token: string }) {
                       {categoryLabels[svc.category] ?? svc.category}
                     </Badge>
                     {svc.isConfigured ? (
-                      <Badge className="text-[10px] px-1.5 py-0 bg-green-500/10 text-green-500 border border-green-500/20 gap-1">
+                      <Badge className="text-[10px] px-1.5 py-0 bg-green-500/10 text-green-600 border border-green-500/20 gap-1">
                         <Zap className="w-2.5 h-2.5" /> مُفعَّل
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-muted-foreground">
-                        غير مُهيَّأ
-                      </Badge>
+                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 text-muted-foreground">غير مُهيَّأ</Badge>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{svc.description}</p>
+                  <p className="text-xs text-muted-foreground">{svc.description}</p>
                   <div className="flex items-center gap-3 text-[11px] text-muted-foreground/60 font-mono flex-wrap">
                     <span>{svc.freeLimit}</span>
                     <a href={svc.url} target="_blank" rel="noopener noreferrer"
@@ -239,27 +232,26 @@ function ServicesTab({ token }: { token: string }) {
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {svc.isConfigured && !isEditing && (
-                    <Button size="sm" variant="ghost"
-                      className="h-7 px-2 text-[11px] text-muted-foreground hover:text-destructive hover:bg-destructive/8"
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px] text-muted-foreground hover:text-red-600 hover:bg-red-500/8"
                       onClick={() => handleDelete(svc.key)} disabled={saving}>
                       <Trash2 className="w-3 h-3" />
                     </Button>
                   )}
                   <Button size="sm" variant={svc.isConfigured ? "outline" : "default"}
-                    className={`h-7 px-3 text-[11px] gap-1.5 ${svc.isConfigured ? "border-border/60" : ""}`}
+                    className="h-7 px-3 text-[11px] gap-1.5"
                     onClick={() => { setEditing(isEditing ? null : svc.key); setInputVal(""); setShowVal(false); }}>
-                    <Key className="w-3 h-3" />
+                    <Zap className="w-3 h-3" />
                     {isEditing ? "إلغاء" : svc.isConfigured ? "تغيير" : "تعيين"}
                   </Button>
                 </div>
               </div>
               {isEditing && (
-                <div className="mt-3 pt-3 border-t border-border/40 space-y-2">
+                <div className="mt-3 pt-3 border-t border-border/10 space-y-2">
                   <div className="relative">
                     <Input type={showVal ? "text" : "password"} value={inputVal}
                       onChange={(e) => setInputVal(e.target.value)}
                       placeholder={`أدخل ${svc.name} API Key...`}
-                      className="h-9 bg-background border-border/60 text-sm pl-10 font-mono" dir="ltr"
+                      className="h-9 bg-background border-border/40 text-sm pl-10 font-mono" dir="ltr"
                       onKeyDown={(e) => { if (e.key === "Enter" && inputVal.trim()) handleSave(svc.key); }} />
                     <button type="button" onClick={() => setShowVal(!showVal)}
                       className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
@@ -273,7 +265,7 @@ function ServicesTab({ token }: { token: string }) {
                       حفظ
                     </Button>
                     {msgForThis && (
-                      <span className={`text-[11px] font-medium ${saveMsg?.ok ? "text-green-500" : "text-destructive"}`}>
+                      <span className={`text-[11px] font-medium ${saveMsg?.ok ? "text-green-600" : "text-red-600"}`}>
                         {saveMsg?.ok ? "✓ تم الحفظ" : "✗ فشل الحفظ"}
                       </span>
                     )}
@@ -342,12 +334,10 @@ function SystemConfigTab({ token }: { token: string }) {
   };
 
   if (loading) return (
-    <div className="space-y-3 p-4">
+    <div className="space-y-3">
       <Skeleton className="h-5 w-64 rounded-lg" />
-      <Skeleton className="h-10 w-full rounded-xl" />
-      <Skeleton className="h-10 w-full rounded-xl" />
-      <Skeleton className="h-10 w-full rounded-xl" />
-      <Skeleton className="h-10 w-full rounded-xl" />
+      <Skeleton className="h-12 w-full rounded-xl" />
+      <Skeleton className="h-12 w-full rounded-xl" />
     </div>
   );
 
@@ -366,7 +356,7 @@ function SystemConfigTab({ token }: { token: string }) {
         const msg = msgs[item.key];
 
         return (
-          <Card key={item.key} className="border-border/50 shadow-sm">
+          <Card key={item.key} className="border-border/20">
             <CardContent className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0 space-y-0.5">
@@ -376,29 +366,26 @@ function SystemConfigTab({ token }: { token: string }) {
                       {item.key}
                     </span>
                     {item.value !== item.defaultValue && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-amber-500 border-amber-500/30">مُعدَّل</Badge>
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-amber-600 border-amber-500/30">مُعدَّل</Badge>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{item.description}</p>
+                  <p className="text-xs text-muted-foreground">{item.description}</p>
                   <p className="text-[11px] text-muted-foreground/50 font-mono">افتراضي: {item.defaultValue}</p>
                 </div>
 
                 {isBool ? (
                   <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={async () => {
-                        const newVal = item.value === "true" ? "false" : "true";
-                        setSaving(item.key);
-                        try {
-                          await apiFetch(`/api/admin/system-config/${item.key}`, {
-                            method: "PUT", body: JSON.stringify({ value: newVal }),
-                          }, token);
-                          await fetchConfig();
-                        } catch (err) { console.error("toggle config failed", err); } finally { setSaving(null); }
-                      }}
-                      disabled={saving === item.key}
-                      className="text-primary hover:text-primary/80 transition-colors"
-                    >
+                    <button onClick={async () => {
+                      const newVal = item.value === "true" ? "false" : "true";
+                      setSaving(item.key);
+                      try {
+                        await apiFetch(`/api/admin/system-config/${item.key}`, {
+                          method: "PUT", body: JSON.stringify({ value: newVal }),
+                        }, token);
+                        await fetchConfig();
+                      } catch (err) { console.error("toggle config failed", err); } finally { setSaving(null); }
+                    }} disabled={saving === item.key}
+                      className="text-primary hover:text-primary/80 transition-colors">
                       {saving === item.key ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
                       ) : item.value === "true" ? (
@@ -418,27 +405,24 @@ function SystemConfigTab({ token }: { token: string }) {
                         <span className="text-sm font-mono text-primary font-bold min-w-[2rem] text-center">
                           {item.value}
                         </span>
-                        <Button size="sm" variant="outline" className="h-7 px-2 border-border/60 text-[11px]"
+                        <Button size="sm" variant="outline" className="h-7 px-2 border-border/40 text-[11px]"
                           onClick={() => startEdit(item.key, item.value)}>
                           <Sliders className="w-3 h-3" />
                         </Button>
                       </>
                     ) : (
                       <div className="flex items-center gap-1.5">
-                        <Input
-                          type={item.type === "number" ? "number" : "text"}
+                        <Input type={item.type === "number" ? "number" : "text"}
                           value={currentVal}
                           onChange={(e) => setEditing((p) => ({ ...p, [item.key]: e.target.value }))}
-                          className="h-7 w-20 text-xs font-mono bg-background border-border/60 text-center"
+                          className="h-7 w-20 text-xs font-mono bg-background border-border/40 text-center"
                           min={item.min} max={item.max} dir="ltr"
-                          onKeyDown={(e) => { if (e.key === "Enter") handleSave(item); if (e.key === "Escape") cancelEdit(item.key); }}
-                        />
+                          onKeyDown={(e) => { if (e.key === "Enter") handleSave(item); if (e.key === "Escape") cancelEdit(item.key); }} />
                         <Button size="sm" onClick={() => handleSave(item)} disabled={saving === item.key}
                           className="h-7 px-2 text-[11px] gap-1">
                           {saving === item.key ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => cancelEdit(item.key)}
-                          className="h-7 px-2 text-[11px]">
+                        <Button size="sm" variant="ghost" onClick={() => cancelEdit(item.key)} className="h-7 px-2 text-[11px]">
                           <XCircle className="w-3 h-3" />
                         </Button>
                       </div>
@@ -448,7 +432,7 @@ function SystemConfigTab({ token }: { token: string }) {
               </div>
 
               {msg && (
-                <p className={`text-[11px] font-medium mt-1.5 ${msg.ok ? "text-green-500" : "text-destructive"}`}>
+                <p className={`text-[11px] font-medium mt-1.5 ${msg.ok ? "text-green-600" : "text-red-600"}`}>
                   {msg.text}
                 </p>
               )}
@@ -499,11 +483,9 @@ function CredentialsTab({ token, onSessionExpired }: { token: string; onSessionE
           ...(form.newPassword ? { newPassword: form.newPassword } : {}),
         }),
       }, token);
-      setMsg({ ok: true, text: "✓ تم تحديث بيانات الاعتماد — يُرجى تسجيل الدخول مرة أخرى إذا غيرت كلمة المرور" });
+      setMsg({ ok: true, text: "✓ تم تحديث بيانات الاعتماد" });
       setForm({ currentPassword: "", newUsername: "", newPassword: "", confirmPassword: "" });
-      if (form.newPassword) {
-        setTimeout(() => onSessionExpired(), 2000);
-      }
+      if (form.newPassword) setTimeout(() => onSessionExpired(), 2000);
     } catch (err) {
       setMsg({ ok: false, text: err instanceof Error ? err.message : "فشل التحديث" });
     } finally { setLoading(false); }
@@ -516,17 +498,16 @@ function CredentialsTab({ token, onSessionExpired }: { token: string; onSessionE
         <p className="text-xs text-muted-foreground">تغيير بيانات دخول لوحة التحكم — تُطبَّق فوراً</p>
       </div>
 
-      <Card className="border-border/50 shadow-sm">
+      <Card className="border-border/20">
         <CardContent className="pt-5 pb-5">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Current Password */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">كلمة المرور الحالية <span className="text-destructive">*</span></label>
+              <label className="text-xs font-medium text-muted-foreground">كلمة المرور الحالية <span className="text-red-600">*</span></label>
               <div className="relative">
                 <Input type={show.current ? "text" : "password"} value={form.currentPassword}
                   onChange={(e) => update("currentPassword", e.target.value)}
                   placeholder="••••••••" autoComplete="current-password"
-                  className="h-9 bg-background border-border/60 pl-10 text-sm" dir="ltr" />
+                  className="h-9 bg-background border-border/40 pl-10 text-sm" dir="ltr" />
                 <button type="button" onClick={() => setShow((p) => ({ ...p, current: !p.current }))}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" tabIndex={-1}>
                   {show.current ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -534,24 +515,21 @@ function CredentialsTab({ token, onSessionExpired }: { token: string; onSessionE
               </div>
             </div>
 
-            <div className="h-px bg-border/40" />
+            <div className="h-px bg-border/10" />
 
-            {/* New Username */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">اسم المستخدم الجديد (اختياري)</label>
               <Input value={form.newUsername} onChange={(e) => update("newUsername", e.target.value)}
-                placeholder="admin" autoComplete="username"
-                className="h-9 bg-background border-border/60 text-sm" dir="ltr" />
+                placeholder="admin" autoComplete="username" className="h-9 bg-background border-border/40 text-sm" dir="ltr" />
             </div>
 
-            {/* New Password */}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">كلمة المرور الجديدة (اختياري)</label>
               <div className="relative">
                 <Input type={show.new ? "text" : "password"} value={form.newPassword}
                   onChange={(e) => update("newPassword", e.target.value)}
                   placeholder="••••••••" autoComplete="new-password"
-                  className="h-9 bg-background border-border/60 pl-10 text-sm" dir="ltr" />
+                  className="h-9 bg-background border-border/40 pl-10 text-sm" dir="ltr" />
                 <button type="button" onClick={() => setShow((p) => ({ ...p, new: !p.new }))}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" tabIndex={-1}>
                   {show.new ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -559,7 +537,6 @@ function CredentialsTab({ token, onSessionExpired }: { token: string; onSessionE
               </div>
             </div>
 
-            {/* Confirm Password */}
             {form.newPassword && (
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">تأكيد كلمة المرور الجديدة</label>
@@ -567,20 +544,20 @@ function CredentialsTab({ token, onSessionExpired }: { token: string; onSessionE
                   <Input type={show.confirm ? "text" : "password"} value={form.confirmPassword}
                     onChange={(e) => update("confirmPassword", e.target.value)}
                     placeholder="••••••••" autoComplete="new-password"
-                    className="h-9 bg-background border-border/60 pl-10 text-sm" dir="ltr" />
+                    className="h-9 bg-background border-border/40 pl-10 text-sm" dir="ltr" />
                   <button type="button" onClick={() => setShow((p) => ({ ...p, confirm: !p.confirm }))}
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors" tabIndex={-1}>
                     {show.confirm ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                   </button>
                 </div>
                 {form.newPassword && form.confirmPassword && form.newPassword !== form.confirmPassword && (
-                  <p className="text-[11px] text-destructive">كلمتا المرور غير متطابقتين</p>
+                  <p className="text-[11px] text-red-600">كلمتا المرور غير متطابقتين</p>
                 )}
               </div>
             )}
 
             {msg && (
-              <div className={`text-xs rounded-lg px-3 py-2.5 border text-center ${msg.ok ? "text-green-600 bg-green-500/8 border-green-500/20" : "text-destructive bg-destructive/8 border-destructive/20"}`}>
+              <div className={`text-xs rounded-lg px-3 py-2.5 border text-center ${msg.ok ? "text-green-600 bg-green-500/8 border-green-500/20" : "text-red-600 bg-red-500/8 border-red-500/20"}`}>
                 {msg.text}
               </div>
             )}
@@ -672,11 +649,11 @@ function UsersTab({ token, onSessionExpired }: { token: string; onSessionExpired
           { label: "عمليات البحث", value: stats?.totalSearches,                            icon: Search },
           { label: "المجانيون",    value: stats && (stats.totalUsers - stats.subscribedUsers), icon: Users },
         ].map(({ label, value, icon: Icon }) => (
-          <Card key={label} className="border-border/50 shadow-sm">
+          <Card key={label} className="border-border/20">
             <CardContent className="p-4">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-[11px] text-muted-foreground mb-1 uppercase font-medium">{label}</p>
+                  <p className="text-[11px] text-muted-foreground mb-1 font-medium">{label}</p>
                   <p className="text-2xl font-bold font-mono text-primary tabular-nums">
                     {loading ? <span className="text-muted-foreground">···</span> : (value ?? 0)}
                   </p>
@@ -688,11 +665,11 @@ function UsersTab({ token, onSessionExpired }: { token: string; onSessionExpired
         ))}
       </div>
 
-      {error && <div className="bg-destructive/8 border border-destructive/20 rounded-lg px-4 py-3 text-sm text-destructive text-center">{error}</div>}
+      {error && <div className="bg-red-500/8 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-600 text-center">{error}</div>}
 
       {/* Users Table */}
-      <Card className="border-border/50 shadow-sm">
-        <CardHeader className="border-b border-border/40 pb-3 pt-4">
+      <Card className="border-border/20">
+        <CardHeader className="border-b border-border/10 pb-3 pt-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <CardTitle className="text-sm font-bold">المستخدمون</CardTitle>
@@ -700,8 +677,8 @@ function UsersTab({ token, onSessionExpired }: { token: string; onSessionExpired
             </div>
             <div className="flex items-center gap-2">
               <Input placeholder="بحث..." value={search} onChange={(e) => setSearch(e.target.value)}
-                className="w-40 h-7 text-xs bg-background border-border/60" dir="auto" />
-              <Button variant="outline" size="sm" onClick={() => fetchData(page)} className="h-7 gap-1.5 text-xs border-border/60 shrink-0">
+                className="w-40 h-7 text-xs bg-background border-border/40" dir="auto" />
+              <Button variant="outline" size="sm" onClick={() => fetchData(page)} className="h-7 gap-1.5 text-xs border-border/40 shrink-0">
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
               </Button>
             </div>
@@ -709,7 +686,7 @@ function UsersTab({ token, onSessionExpired }: { token: string; onSessionExpired
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="divide-y divide-border/30 px-4 py-3 space-y-3">
+            <div className="divide-y divide-border/10 px-4 py-3 space-y-3">
               {Array(5).fill(0).map((_, i) => (
                 <div key={i} className="flex items-center gap-3">
                   <Skeleton className="w-8 h-8 rounded-full shrink-0" />
@@ -723,7 +700,7 @@ function UsersTab({ token, onSessionExpired }: { token: string; onSessionExpired
           ) : filtered.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground text-sm">لا يوجد مستخدمون</div>
           ) : (
-            <div className="divide-y divide-border/30">
+            <div className="divide-y divide-border/10">
               {filtered.map((u) => {
                 const subExpiry = u.subscriptionExpiry ? new Date(u.subscriptionExpiry) : null;
                 const daysLeft = subExpiry ? Math.ceil((subExpiry.getTime() - Date.now()) / 86400000) : null;
@@ -749,7 +726,7 @@ function UsersTab({ token, onSessionExpired }: { token: string; onSessionExpired
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {u.isSubscribed ? (
-                        <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px] text-muted-foreground hover:text-destructive hover:bg-destructive/8"
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px] text-muted-foreground hover:text-red-600 hover:bg-red-500/8"
                           onClick={() => handleAction(u.id, "unsubscribe")} disabled={!!actionLoading}>
                           {actionLoading === `${u.id}-unsubscribe` ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
                         </Button>
@@ -759,11 +736,11 @@ function UsersTab({ token, onSessionExpired }: { token: string; onSessionExpired
                           {actionLoading === `${u.id}-subscribe` ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
                         </Button>
                       )}
-                      <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px] text-muted-foreground hover:text-amber-500 hover:bg-amber-500/8"
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px] text-muted-foreground hover:text-amber-600 hover:bg-amber-500/8"
                         onClick={() => handleAction(u.id, "reset-quota")} disabled={!!actionLoading} title="إعادة تعيين الحصة">
                         {actionLoading === `${u.id}-reset-quota` ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/8"
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-red-600 hover:bg-red-500/8"
                         onClick={() => { if (confirm("حذف هذا المستخدم نهائياً؟")) handleAction(u.id, "delete"); }} disabled={!!actionLoading}>
                         {actionLoading === `${u.id}-delete` ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
                       </Button>
@@ -774,7 +751,7 @@ function UsersTab({ token, onSessionExpired }: { token: string; onSessionExpired
             </div>
           )}
           {pages > 1 && (
-            <div className="flex items-center justify-center gap-3 p-3 border-t border-border/30">
+            <div className="flex items-center justify-center gap-3 p-3 border-t border-border/10">
               <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => fetchData(page - 1)} className="h-7 gap-1 text-xs">
                 <ChevronRight className="w-3.5 h-3.5" /> السابق
               </Button>
@@ -809,7 +786,6 @@ function AdminDashboard({ token, onLogout }: { token: string; onLogout: () => vo
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 lg:p-8" dir="rtl">
       <div className="max-w-5xl mx-auto space-y-5">
-
         {/* Header */}
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -817,7 +793,7 @@ function AdminDashboard({ token, onLogout }: { token: string; onLogout: () => vo
               <Shield className="w-4 h-4 text-primary" />
             </div>
             <div>
-              <h1 className="text-base font-bold leading-tight">لوحة التحكم</h1>
+              <h1 className="text-base font-bold">لوحة التحكم</h1>
               <p className="text-[11px] text-muted-foreground font-mono">LYOSINT Admin</p>
             </div>
           </div>
@@ -828,12 +804,12 @@ function AdminDashboard({ token, onLogout }: { token: string; onLogout: () => vo
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 bg-secondary/40 p-1 rounded-lg border border-border/40 flex-wrap">
+        <div className="flex items-center gap-1 bg-secondary/30 p-1 rounded-lg border border-border/30 flex-wrap">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button key={id} onClick={() => setTab(id)}
               className={`flex-1 min-w-fit flex items-center justify-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium transition-all ${
                 tab === id
-                  ? "bg-background shadow-sm text-foreground border border-border/40"
+                  ? "bg-card shadow-sm text-foreground border border-border/30"
                   : "text-muted-foreground hover:text-foreground"
               }`}>
               <Icon className="w-3.5 h-3.5" />

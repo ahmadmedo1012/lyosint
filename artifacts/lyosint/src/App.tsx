@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -16,6 +16,7 @@ import InvestigationDetailPage from "@/pages/investigation-detail";
 import EntityDetailPage from "@/pages/entity-detail";
 import KnowledgeGraphPage from "@/pages/knowledge-graph";
 import DossiersPage from "@/pages/dossiers";
+import EntitiesPage from "@/pages/entities";
 import { ThemeProvider } from "@/contexts/theme";
 import { AuthProvider, useAuth } from "@/contexts/auth";
 import { LoginPage } from "@/components/telegram-login";
@@ -69,6 +70,8 @@ function AuthGate() {
           <Route path="/platforms" component={PlatformsPage} />
           <Route path="/history" component={HistoryPage} />
           <Route path="/account" component={AccountPage} />
+          <Route path="/entities" component={EntitiesPage} />
+          <Route path="/settings"><Redirect to="/" /></Route>
           <Route component={NotFound} />
         </Switch>
       </ErrorBoundary>

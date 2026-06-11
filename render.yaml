@@ -21,14 +21,34 @@ services:
         sync: false
       - key: ADMIN_USERNAME
         value: admin
-        sync: false
       - key: ADMIN_PASSWORD
         sync: false
       - key: VITE_TELEGRAM_BOT_USERNAME
         value: lyosintbot
-        sync: false
       - key: PUBLIC_URL
         sync: false
       - key: VITE_API_URL
-        value: ""
+        value: https://lyosint.onrender.com
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: RATE_LIMIT_MAX
+        sync: false
+      - key: RATE_LIMIT_WINDOW_MS
+        sync: false
+      - key: CACHE_TTL_SECONDS
+        sync: false
+      - key: CACHE_MAX_ENTRIES
+        sync: false
+      - key: INTELX_API_KEY
+        sync: false
+      - key: SHODAN_API_KEY
+        sync: false
+      - key: HIBP_API_KEY
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
         sync: false

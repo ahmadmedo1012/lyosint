@@ -83,10 +83,18 @@ function warnOptional(): void {
   }
 }
 
+function requireSecret(key: keyof Secrets): string {
+  const value = getSecret(key);
+  if (!value) {
+    throw new Error(`السر الإجباري ${key} غير مضبوط — تأكد من تعيينه في المتغيرات البيئية أو ملف .env`);
+  }
+  return value;
+}
+
 export const secrets: Secrets = {
-  get JWT_SECRET() { return getSecret("JWT_SECRET") ?? ""; },
-  get ENCRYPTION_KEY() { return getSecret("ENCRYPTION_KEY") ?? ""; },
-  get DATABASE_URL() { return getSecret("DATABASE_URL") ?? ""; },
+  get JWT_SECRET() { return requireSecret("JWT_SECRET"); },
+  get ENCRYPTION_KEY() { return requireSecret("ENCRYPTION_KEY"); },
+  get DATABASE_URL() { return requireSecret("DATABASE_URL"); },
   get REDIS_URL() { return getSecret("REDIS_URL"); },
   get JWT_REFRESH_SECRET() { return getSecret("JWT_REFRESH_SECRET"); },
   get TOTP_ISSUER() { return getSecret("TOTP_ISSUER"); },

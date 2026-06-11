@@ -1,7 +1,7 @@
 import { type Request, type Response, type NextFunction } from "express";
 import { db, usersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
-import { toPublicUser } from "../routes/auth";
+import { toPublicUser } from "../lib/user-transformer";
 import { getSystemConfigNumber } from "../services/settingsService";
 import { LRUCache } from "../lib/cache";
 

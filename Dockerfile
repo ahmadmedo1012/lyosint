@@ -35,7 +35,7 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* .npmrc* tsconfig.json tsco
 COPY lib ./lib
 COPY artifacts ./artifacts
 COPY scripts ./scripts
-RUN pnpm install --frozen-lockfile=false
+RUN pnpm install --frozen-lockfile
 
 FROM base AS build
 COPY --from=deps /app /app
@@ -81,4 +81,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 USER appuser
 
 ENTRYPOINT ["tini", "--"]
-CMD ["pnpm", "run", "render:start"]
+CMD ["node", "artifacts/api-server/dist/index.mjs"]

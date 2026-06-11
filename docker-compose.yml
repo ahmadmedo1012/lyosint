@@ -57,9 +57,6 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
       VITE_TELEGRAM_BOT_USERNAME: ${VITE_TELEGRAM_BOT_USERNAME:-lyosintbot}
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
-    volumes:
-      - ./artifacts/api-server/src:/app/artifacts/api-server/src
-      - ./lib:/app/lib
     depends_on:
       postgres:
         condition: service_healthy

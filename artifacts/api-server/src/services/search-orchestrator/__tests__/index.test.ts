@@ -1,4 +1,4 @@
-import { describe, expect, it, jest, beforeEach } from "@jest/globals";
+import { jest, describe, expect, it, beforeEach } from "@jest/globals";
 import {
   enqueueSearch,
   orchestrateSearch,
@@ -14,23 +14,16 @@ jest.mock("@workspace/db", () => ({
 jest.mock("../../../lib/logger", () => ({ logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() } }));
 
 jest.mock("../../entity-resolver/index", () => ({
-  resolveEntity: jest.fn().mockResolvedValue({
+  resolveEntity: jest.fn<() => Promise<any>>().mockResolvedValue({
     id: "entity-mock",
     label: "Test User",
     confidence: 0.75,
-    identifiers: [
-      { type: "name", original: "Test User", normalized: "test user", fingerprint: "fp1" },
-    ],
+    identifiers: [],
     matchedIds: [],
     mergedIds: [],
     createdAt: new Date().toISOString(),
   }),
-  normalizeIdentifier: jest.fn().mockImplementation((raw: any) => ({
-    type: raw.type,
-    original: raw.value,
-    normalized: raw.value.toLowerCase(),
-    fingerprint: `fp-${raw.value}`,
-  })),
+  normalizeIdentifier: jest.fn(),
 }));
 
 jest.mock("../../confidence-engine/index", () => ({

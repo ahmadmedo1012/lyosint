@@ -5,8 +5,8 @@ import { and, eq, lt } from "drizzle-orm";
 import * as OTPAuth from "otpauth";
 import { z } from "zod";
 import { logger } from "../lib/logger";
-import { getSystemConfigNumber } from "../services/settingsService";
 import { getCachedUser, setCachedUser, clearSessionCache, requireAuth as requireLegacyAuth } from "../middleware/requireAuth";
+import { toPublicUser, getFreeLimit } from "../lib/user-transformer";
 import { generateTokens, refreshTokens, verifyAccessToken, invalidateSession, signAccessToken, type TokenPayload } from "../lib/session";
 import { validateBody } from "../middleware/validate";
 import { recordFailedAttempt, isBlocked, getBlockRemainingMs, clearRecord } from "../lib/abuse";
@@ -15,10 +15,6 @@ import { UnauthorizedError } from "../lib/errors";
 const router = Router();
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
-
-async function getFreeLimit(): Promise<number> {
-  return getSystemConfigNumber("sys_free_search_quota");
-}
 
 setInterval(async () => {
   try {
@@ -548,18 +544,6 @@ async function upsertUser(data: { telegramId: string; firstName: string; lastNam
     sessionToken, searchCount: 0, isSubscribed: false,
   }).returning();
   return created;
-}
-
-export async function toPublicUser(user: typeof usersTable.$inferSelect) {
-  const isActive = user.isSubscribed && user.subscriptionExpiry && user.subscriptionExpiry > new Date();
-  const limit = await getFreeLimit();
-  return {
-    id: user.id, telegramId: user.telegramId, firstName: user.firstName, lastName: user.lastName,
-    username: user.username, photoUrl: user.photoUrl, searchCount: user.searchCount,
-    isSubscribed: isActive ?? false, subscriptionExpiry: user.subscriptionExpiry?.toISOString() ?? null,
-    canSearch: isActive || user.searchCount < limit,
-    searchesRemaining: isActive ? null : Math.max(0, limit - user.searchCount),
-  };
 }
 
 export default router;

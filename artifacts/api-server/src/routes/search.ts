@@ -85,34 +85,46 @@ router.post("/search/deep", requireAuth, requireQuota, async (req, res) => {
   res.status(202).json({ id, status: "running", type: "deep", query: query || "deep search", progress: 0, platformsSearched: 0, platformsTotal, createdAt: now.toISOString(), completedAt: null });
 });
 
-router.get("/search/:id", async (req, res) => {
-  const parsed = GetSearchResultParams.safeParse(req.params);
-  if (!parsed.success) { res.status(400).json({ error: "Invalid params" }); return; }
-  const [row] = await db.select().from(searchesTable).where(eq(searchesTable.id, parsed.data.id));
-  if (!row) { res.status(404).json({ error: "Not found" }); return; }
-  res.json(toSearchResult(row));
+router.get("/search/:id", async (req, res, next) => {
+  try {
+    const parsed = GetSearchResultParams.safeParse(req.params);
+    if (!parsed.success) { res.status(400).json({ error: "Invalid params" }); return; }
+    const [row] = await db.select().from(searchesTable).where(eq(searchesTable.id, parsed.data.id));
+    if (!row) { res.status(404).json({ error: "Not found" }); return; }
+    res.json(toSearchResult(row));
+  } catch (err) {
+    next(err);
+  }
 });
 
-router.get("/search/:id/status", async (req, res) => {
-  const parsed = GetSearchStatusParams.safeParse(req.params);
-  if (!parsed.success) { res.status(400).json({ error: "Invalid params" }); return; }
-  const [row] = await db.select().from(searchesTable).where(eq(searchesTable.id, parsed.data.id));
-  if (!row) { res.status(404).json({ error: "Not found" }); return; }
-  res.json(toSearchTask(row));
+router.get("/search/:id/status", async (req, res, next) => {
+  try {
+    const parsed = GetSearchStatusParams.safeParse(req.params);
+    if (!parsed.success) { res.status(400).json({ error: "Invalid params" }); return; }
+    const [row] = await db.select().from(searchesTable).where(eq(searchesTable.id, parsed.data.id));
+    if (!row) { res.status(404).json({ error: "Not found" }); return; }
+    res.json(toSearchTask(row));
+  } catch (err) {
+    next(err);
+  }
 });
 
-router.get("/searches/recent", async (req, res) => {
-  const token = req.headers.authorization?.replace("Bearer ", "");
-  if (!token) { res.json([]); return; }
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.sessionToken, token));
-  if (!user) { res.json([]); return; }
-  const parsed = ListRecentSearchesQueryParams.safeParse(req.query);
-  const limit = parsed.success ? (parsed.data.limit ?? 20) : 20;
-  const rows = await db.select().from(searchesTable).orderBy(desc(searchesTable.createdAt)).limit(limit);
-  res.json(rows.map((r: Search) => ({
-    id: r.id, type: r.type, query: r.query, status: r.status,
-    createdAt: r.createdAt.toISOString(), resultsCount: r.resultsCount ?? null, confidenceScore: r.confidenceScore ?? null,
-  })));
+router.get("/searches/recent", async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.replace("Bearer ", "");
+    if (!token) { res.json([]); return; }
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.sessionToken, token));
+    if (!user) { res.json([]); return; }
+    const parsed = ListRecentSearchesQueryParams.safeParse(req.query);
+    const limit = parsed.success ? (parsed.data.limit ?? 20) : 20;
+    const rows = await db.select().from(searchesTable).orderBy(desc(searchesTable.createdAt)).limit(limit);
+    res.json(rows.map((r: Search) => ({
+      id: r.id, type: r.type, query: r.query, status: r.status,
+      createdAt: r.createdAt.toISOString(), resultsCount: r.resultsCount ?? null, confidenceScore: r.confidenceScore ?? null,
+    })));
+  } catch (err) {
+    next(err);
+  }
 });
 
 function toSearchTask(row: typeof searchesTable.$inferSelect) {

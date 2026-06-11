@@ -48,7 +48,7 @@ export async function lookupMemory(
   ]);
 
   const entity = entityRows[0];
-  if (!entity || entity.status !== "active") {
+  if (!entity) {
     return { found: false, entityId: null, lastSeenAt: null, confidenceScore: 0, profileCount: 0, evidenceCount: 0, summary: null };
   }
 
@@ -58,10 +58,10 @@ export async function lookupMemory(
     found: true,
     entityId,
     lastSeenAt: rows[0]!.createdAt,
-    confidenceScore: entity.confidenceScore ?? 0,
+    confidenceScore: entity.riskScore ?? 0,
     profileCount: profileCountRows.length,
     evidenceCount: evidenceCountRows.length,
-    summary: entity.summary,
+    summary: null,
   };
 }
 
