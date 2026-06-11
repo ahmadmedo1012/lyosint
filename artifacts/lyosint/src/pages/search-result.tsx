@@ -163,7 +163,7 @@ export default function SearchResultPage() {
     query: {
       enabled: !!id,
       queryKey: getGetSearchStatusQueryKey(id!),
-      refetchInterval: (query) => {
+      refetchInterval: (query: { state: { data: unknown } }) => {
         const d = query.state.data as { status?: string } | undefined;
         if (d?.status === "completed" || d?.status === "failed") return false;
         return 500;
@@ -179,7 +179,7 @@ export default function SearchResultPage() {
     query: {
       queryKey: getGetSearchResultQueryKey(id!),
       enabled: !!id && (isCompleted || isRunning),
-      refetchInterval: (query) => {
+      refetchInterval: (query: { state: { data: unknown } }) => {
         const d = query.state.data as Record<string, unknown> | undefined;
         if (isCompleted || isFailed) return false;
         const ur = d?.usernameResult as Record<string, unknown> | undefined;

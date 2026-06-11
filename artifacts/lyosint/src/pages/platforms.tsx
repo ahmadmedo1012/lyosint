@@ -107,7 +107,7 @@ export default function PlatformsPage() {
                   <Badge variant="secondary" className="mr-2 font-mono text-[10px]">{items.length}</Badge>
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                  {items.map((platform, idx) => (
+                  {items.map((platform, idx: number) => (
                     <div key={platform.slug}
                       className={`p-3 rounded-lg border font-mono flex flex-col justify-between min-h-[4.5rem] transition-all ${
                         platform.active
