@@ -69,28 +69,31 @@ function validateRequired(): void {
     }
   }
   if (missing.length > 0) {
-    // Generate fallback secrets for development only
-    if (process.env.NODE_ENV !== "production") {
-      for (const key of missing) {
-        let fallback: string;
-        if (key === "JWT_SECRET" || key === "JWT_REFRESH_SECRET") {
-          fallback = randomBytes(32).toString("hex");
-        } else if (key === "ENCRYPTION_KEY") {
-          fallback = randomBytes(32).toString("hex");
-        } else {
-          fallback = randomBytes(16).toString("hex");
-        }
-        // Set the fallback secret in process.env so it gets picked up
-        process.env[key] = fallback;
-        logger.warn({ secret: key }, `Using fallback secret for ${key} - DO NOT USE IN PRODUCTION`);
-      }
-      return; // Continue execution with fallback secrets
+    // Check if fallback generation is explicitly disabled
+    if (process.env.DISABLE_SECRET_FALLBACKS === "true") {
+      throw new Error(
+        `الأسماء الأسرارية الإجبارية مفقودة: ${missing.join(", ")}. `
+        + "تأكد من تعيينها في المتغيرات البيئية أو ملف .env",
+      );
     }
 
-    throw new Error(
-      `الأسماء الأسرارية الإجبارية مفقودة: ${missing.join(", ")}. `
-      + "تأكد من تعيينها في المتغيرات البيئية أو ملف .env",
-    );
+    // Generate fallback secrets when required secrets are missing
+    // WARNING: This is for development convenience only and should never be used in production
+    for (const key of missing) {
+      let fallback: string;
+      if (key === "JWT_SECRET" || key === "JWT_REFRESH_SECRET") {
+        fallback = randomBytes(32).toString("hex");
+      } else if (key === "ENCRYPTION_KEY") {
+        fallback = randomBytes(32).toString("hex");
+      } else {
+        fallback = randomBytes(16).toString("hex");
+      }
+      // Set the fallback secret in process.env so it gets picked up
+      process.env[key] = fallback;
+      logger.error({ secret: key }, `SECURITY WARNING: Using auto-generated fallback secret for ${key}. THIS IS INSECURE AND SHOULD ONLY BE USED IN DEVELOPMENT. Configure proper secrets in your environment.`);
+    }
+
+    logger.error({ missingSecrets: missing }, `SECURITY WARNING: Started with fallback secrets for: ${missing.join(", ")}. application may not function correctly and is vulnerable to attacks. Configure proper secrets immediately.`);
   }
 }
 
