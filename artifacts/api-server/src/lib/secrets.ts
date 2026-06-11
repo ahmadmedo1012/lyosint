@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { randomBytes } from "node:crypto";
 import { logger } from "./logger";
 
 interface Secrets {
@@ -68,6 +69,24 @@ function validateRequired(): void {
     }
   }
   if (missing.length > 0) {
+    // Generate fallback secrets for development only
+    if (process.env.NODE_ENV !== "production") {
+      for (const key of missing) {
+        let fallback: string;
+        if (key === "JWT_SECRET" || key === "JWT_REFRESH_SECRET") {
+          fallback = randomBytes(32).toString("hex");
+        } else if (key === "ENCRYPTION_KEY") {
+          fallback = randomBytes(32).toString("hex");
+        } else {
+          fallback = randomBytes(16).toString("hex");
+        }
+        // Set the fallback secret in process.env so it gets picked up
+        process.env[key] = fallback;
+        logger.warn({ secret: key }, `Using fallback secret for ${key} - DO NOT USE IN PRODUCTION`);
+      }
+      return; // Continue execution with fallback secrets
+    }
+
     throw new Error(
       `الأسماء الأسرارية الإجبارية مفقودة: ${missing.join(", ")}. `
       + "تأكد من تعيينها في المتغيرات البيئية أو ملف .env",
