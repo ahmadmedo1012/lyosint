@@ -288,6 +288,9 @@ router.post("/auth/2fa/setup", requireLegacyAuth, validateBody(TotpSetupBody), a
     const otpAuthUrl = totp.toString();
     const secretBase32 = secret.base32;
 
+    // Store the TOTP secret in the user's record
+    await db.update(usersTable).set({ totpSecret: secretBase32, updatedAt: new Date() }).where(eq(usersTable.id, user.id));
+
     res.json({
       secret: secretBase32,
       otpAuthUrl,
@@ -303,20 +306,18 @@ router.post("/auth/2fa/verify", requireLegacyAuth, validateBody(TotpVerifyBody),
     const user = (req as typeof req & { authUser: typeof usersTable.$inferSelect }).authUser;
     const { token } = req.body as z.infer<typeof TotpVerifyBody>;
 
-    const secret = process.env["TOTP_SECRET"] ?? "";
-    if (!secret) {
+    const userSecret = user.totpSecret;
+    if (!userSecret) {
       res.status(400).json({ error: "لم يتم إعداد المصادقة الثنائية بعد" });
       return;
     }
 
-    const totp = new OTPAuth.TOTP({ secret });
+    const totp = new OTPAuth.TOTP({ secret: userSecret });
     const delta = totp.validate({ token, window: 1 });
     if (delta === null) {
       throw new UnauthorizedError("رمز المصادقة الثنائية غير صالح");
     }
 
-    // Store TOTP secret reference in user record
-    await db.update(usersTable).set({ totpSecret: secret, updatedAt: new Date() }).where(eq(usersTable.id, user.id));
     res.json({ ok: true, message: "تم تفعيل المصادقة الثنائية بنجاح" });
   } catch (err) {
     next(err);
