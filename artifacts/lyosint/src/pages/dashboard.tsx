@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/auth";
 import { PaywallModal } from "@/components/paywall-modal";
+import { FallingPattern } from "@/components/ui/falling-pattern";
 import {
   User, Phone, AtSign, Zap, Activity, Clock, ShieldAlert,
   Crown, Lock, Search, ChevronLeft, TrendingUp, Globe,
@@ -102,7 +103,15 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="max-w-3xl mx-auto py-4 space-y-6" dir="rtl">
+    <div className="relative">
+      <FallingPattern
+        className="fixed inset-0 -z-10"
+        color="var(--primary)"
+        duration={200}
+        density={1.5}
+        blurIntensity="0.8em"
+      />
+      <div className="max-w-3xl mx-auto py-4 space-y-6" dir="rtl">
       {/* Welcome Header */}
       <div className="space-y-1">
         <h1 className="text-2xl font-bold text-foreground">
@@ -294,6 +303,7 @@ export default function Dashboard() {
       </div>
 
       <PaywallModal open={paywallOpen} onClose={() => setPaywallOpen(false)} />
+      </div>
     </div>
   );
 }
